@@ -26,6 +26,7 @@ import { DevicePicker } from "./ui/devices.ts";
 import { QueueView } from "./ui/queue.ts";
 import { AudioSettingsView } from "./ui/settings.ts";
 import { JamView } from "./ui/jam.ts";
+import { LyricsView } from "./ui/lyrics.ts";
 
 type Status = {
   connected: boolean;
@@ -182,6 +183,7 @@ const paths: Record<string, string> = {
     '<rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="6" r="1"/>',
   tv: '<rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 22h8m-4-4v4"/>',
   queue: '<path d="M3 5h18M3 11h12M3 17h8m6-2 5 3-5 3Z"/>',
+  lyrics: '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="5.5" cy="18.5" rx="3.5" ry="2.5"/><ellipse cx="16.5" cy="16.5" rx="3.5" ry="2.5"/>',
   music:
     '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="5.5" cy="18.5" rx="3.5" ry="2.5"/><ellipse cx="16.5" cy="16.5" rx="3.5" ry="2.5"/>',
   heart:
@@ -212,7 +214,7 @@ byId("app").innerHTML = `
       <div id="library-list" class="library-list"><div class="library-empty"><strong>Votre bibliothèque vous attend</strong><p>Connectez-vous pour retrouver votre musique.</p></div></div>
     </aside>
     <main class="content pane" id="content" tabindex="-1" aria-label="Contenu Spotify"><div id="main-content"></div></main>
-    <aside class="now-playing pane" aria-label="En cours de lecture"><h2 id="right-panel-heading">En cours de lecture</h2><section id="jam-panel" aria-label="Jam" hidden></section><div id="now-playing"><div class="now-empty">${icon("music")}<p>Choisissez un titre<br/>pour commencer à écouter.</p></div></div></aside>
+    <aside class="now-playing pane" aria-label="En cours de lecture"><h2 id="right-panel-heading">En cours de lecture</h2><section id="jam-panel" aria-label="Jam" hidden></section><section id="lyrics-panel" aria-label="Paroles" hidden></section><div id="now-playing"><div class="now-empty">${icon("music")}<p>Choisissez un titre<br/>pour commencer à écouter.</p></div></div></aside>
   </div>
   <footer class="player" aria-label="Lecteur audio">
     <div id="track-info" class="track-info"></div>
@@ -223,7 +225,7 @@ byId("app").innerHTML = `
       <button id="next" class="icon-button" aria-label="Titre suivant" disabled>${icon("next")}</button>
       <button id="repeat" class="icon-button mode-button" aria-label="Activer la répétition" aria-pressed="false" disabled>${icon("repeat")}</button>
     </div><div class="timeline"><span id="position">0:00</span><input id="seek" type="range" min="0" max="100" value="0" aria-label="Position de lecture" disabled/><span id="duration">0:00</span></div></div>
-    <div class="player-options"><button id="show-devices" class="icon-button" aria-label="Se connecter à un appareil" title="Se connecter à un appareil" disabled>${icon("computer")}</button><button id="show-queue" class="icon-button" aria-label="File d’attente">${icon("queue")}</button>${icon("volume")}<input id="volume" type="range" min="0" max="100" value="50" aria-label="Volume" disabled/></div>
+    <div class="player-options"><button id="show-lyrics" class="icon-button" aria-label="Afficher les paroles" title="Paroles" disabled>${icon("lyrics")}</button><button id="show-devices" class="icon-button" aria-label="Se connecter à un appareil" title="Se connecter à un appareil" disabled>${icon("computer")}</button><button id="show-queue" class="icon-button" aria-label="File d’attente">${icon("queue")}</button>${icon("volume")}<input id="volume" type="range" min="0" max="100" value="50" aria-label="Volume" disabled/></div>
   </footer>
   <button id="connect-banner" class="connect-banner" hidden></button>
   <div id="toast" role="status" aria-live="polite" hidden></div>`;
@@ -243,6 +245,15 @@ const jamView = new JamView(
   (active) => devicePicker.setJam(active),
   showError,
 );
+const lyricsView = new LyricsView(
+  byId("lyrics-panel"),
+  byId("now-playing"),
+  updateControls,
+);
+byId<HTMLButtonElement>("show-lyrics").addEventListener("click", () => {
+  if (lyricsView.isOpen) lyricsView.close();
+  else lyricsView.open(playback.track?.uri, playback.positionMs);
+});
 const audioSettings = new AudioSettingsView(connectState, showError);
 byId("connect-banner").addEventListener("click", () =>
   byId("show-devices").click(),
@@ -262,6 +273,7 @@ function showError(value: unknown): void {
     accountProfile = null;
     status.connected = false;
     status.nativeReady = false;
+    lyricsView.reset();
     renderAccount();
   }
 }
@@ -839,6 +851,7 @@ function applyConnect(next: ConnectState): void {
     ended: false,
     unavailable: false,
   };
+  lyricsView.trackChanged(track?.uri, next.positionMs);
   lastPlaybackUpdate = performance.now();
   if (changed) {
     const known = new Map(
@@ -921,6 +934,8 @@ function applyConnect(next: ConnectState): void {
 function updateControls(): void {
   const ready = status.nativeReady && connectState.ready && !connectPending;
   const hasTrack = !!playback.track && ready;
+  byId<HTMLButtonElement>("show-lyrics").disabled = !hasTrack;
+  byId<HTMLButtonElement>("show-lyrics").classList.toggle("active", lyricsView.isOpen);
   devicePicker.update(connectState, connectPending);
   const toggle = byId<HTMLButtonElement>("toggle-play");
   toggle.disabled =
@@ -1098,6 +1113,7 @@ document.addEventListener("click", async (event) => {
   if (id === "connect" || id === "welcome-connect") void connect(true);
   if (id === "disconnect") {
     jamView.setReady(false);
+    lyricsView.reset();
     ++connectEpoch;
     connectState = emptyConnectState();
     audioSettings.update(connectState);
@@ -1404,6 +1420,7 @@ function updatePosition(): void {
     );
     if (seek.value !== value) seek.value = value;
   }
+  lyricsView.updatePosition(position);
 }
 setInterval(() => {
   // Server events still update seeks and paused tracks; only playing progress

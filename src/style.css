@@ -519,6 +519,57 @@ h2 {
 .now-playing p {
   color: #b3b3b3;
 }
+#lyrics-panel {
+  padding: 4px 16px 20px;
+  height: calc(100% - 44px);
+  overflow-y: auto;
+}
+.lyrics-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 20px;
+}
+.lyrics-panel-heading h2 {
+  font-size: 18px;
+}
+.lyrics-panel-heading .icon-button {
+  font-size: 24px;
+  line-height: 1;
+}
+.lyrics-status {
+  color: #b3b3b3;
+  line-height: 1.5;
+}
+.lyrics-lines {
+  display: grid;
+  gap: 17px;
+  padding: 6px 2px 28px;
+}
+.lyrics-lines p {
+  color: #777;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.22;
+  transition: color 180ms ease, transform 180ms ease;
+}
+.lyrics-lines p.active {
+  color: #fff;
+  transform: scale(1.025);
+  transform-origin: left center;
+}
+.lyrics-lines[dir="rtl"] p.active {
+  transform-origin: right center;
+}
+.lyrics-lines p.instrumental {
+  color: #555;
+  font-size: 17px;
+}
+.lyrics-provider {
+  color: #777 !important;
+  font-size: 12px;
+  padding-bottom: 8px;
+}
 .album-caption {
   padding: 18px;
   margin-top: 24px;

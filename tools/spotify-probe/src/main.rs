@@ -20,6 +20,8 @@ mod connect;
 mod jam;
 #[path = "../../../src-tauri/src/library_api.rs"]
 mod library_api;
+#[path = "../../../src-tauri/src/lyrics.rs"]
+mod lyrics;
 #[path = "../../../src-tauri/src/profiles.rs"]
 mod profiles;
 
@@ -70,6 +72,19 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     tokio::time::timeout(Duration::from_secs(30), session.connect(credentials, false)).await??;
     println!("SESSION_OK");
+    if let Some(uri) = std::env::args().skip_while(|arg| arg != "--lyrics").nth(1) {
+        let result = lyrics::fetch(&session, &uri).await;
+        session.shutdown();
+        match result {
+            Ok(Some(data)) => println!("LYRICS_OK: lines={} synchronized={}", data.lines.len(), data.synchronized),
+            Ok(None) => println!("LYRICS_NOT_FOUND"),
+            Err(err) => {
+                println!("LYRICS_FAILED: {err:?}");
+                return Err("Lyrics lookup failed".into());
+            }
+        }
+        return Ok(());
+    }
     if std::env::args().any(|arg| arg == "--profiles") {
         diagnose_profiles(&session).await?;
     }

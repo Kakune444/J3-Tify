@@ -24,6 +24,7 @@ mod audio;
 mod connect;
 mod jam;
 mod library_api;
+mod lyrics;
 mod profiles;
 use audio::{AudioPreferences, AudioQuality};
 use connect::{ConnectAction, ConnectError, ConnectRuntime, ConnectView};
@@ -1134,6 +1135,18 @@ async fn get_connect_state(state: State<'_, Arc<Backend>>) -> Result<ConnectView
     Ok(runtime.view().await)
 }
 
+#[tauri::command]
+async fn get_lyrics(state: State<'_, Arc<Backend>>, uri: String) -> Result<Option<lyrics::Lyrics>> {
+    let session = state.session().await?;
+    let _slot = state.requests.acquire().await.map_err(network_error)?;
+    lyrics::fetch(&session, &uri).await.map_err(|err| match err {
+        lyrics::LyricsError::InvalidTrack => error("INPUT", "Ce titre ne peut pas être vérifié."),
+        lyrics::LyricsError::Unavailable => error("LYRICS_UNAVAILABLE", "Spotify ne donne pas accès aux paroles de ce titre."),
+        lyrics::LyricsError::Network => error("NETWORK", "Impossible de charger les paroles pour le moment."),
+        lyrics::LyricsError::Response => error("API_CHANGED", "La réponse Spotify pour les paroles n’est pas reconnue."),
+    })
+}
+
 async fn jam_client(state: &Backend) -> Result<Arc<JamClient>> {
     state
         .native
@@ -1213,6 +1226,7 @@ pub fn run() {
             get_context_page,
             get_track_details,
             get_connect_state,
+            get_lyrics,
             get_jam,
             create_jam,
             end_jam,

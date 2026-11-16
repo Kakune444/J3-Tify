@@ -72,6 +72,11 @@ ramène ici. Un bandeau vert indique une lecture sur un autre appareil. Les appa
 doivent être connectés au même compte Spotify. Les commandes indisponibles sur
 l’appareil actif sont désactivées.
 
+Le bouton « Paroles », à côté des appareils, ouvre un panneau synchronisé quand
+Spotify fournit des lignes horodatées. Les paroles sont demandées uniquement à
+l’ouverture, mises en cache en mémoire pour six titres au plus, puis effacées à
+la déconnexion. Les morceaux sans paroles et les podcasts affichent un état clair.
+
 Dans ce sélecteur, « Lancer un Jam » ouvre la session partagée avec ses membres,
 son lien et son QR code d'invitation. L'hôte peut la terminer après confirmation.
 La participation depuis un autre compte reste à vérifier ; rejoindre un Jam depuis

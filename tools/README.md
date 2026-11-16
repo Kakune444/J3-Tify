@@ -34,6 +34,16 @@ relecture depuis le cache. Sa sortie contient uniquement des booléens et compte
 (`PROFILES_OK`), sans nom, URL de photo, identifiant ou autre information de compte.
 Ce mode ne modifie ni les playlists ni la lecture.
 
+Pour contrôler l’accès natif aux paroles sans afficher ni enregistrer leur texte,
+passer une URI de titre connue :
+
+```powershell
+./tools/spotify-probe/target/release/spotify-probe.exe --stored --lyrics spotify:track:0000000000000000000000
+```
+
+La sonde affiche seulement l’existence des paroles, leur nombre de lignes et leur
+mode synchronisé. Elle ne modifie ni la lecture ni la bibliothèque.
+
 ## Spotify Connect
 
 La sonde partage les réglages de construction du lecteur : 320 kbit/s demandés
