@@ -504,7 +504,21 @@ async fn connect_spotify(
     if !imported_mode {
         let reusable = Credentials { username: Some(session.username()), auth_data: session.auth_data(), auth_type: librespot_protocol::authentication::AuthenticationType::AUTHENTICATION_STORED_SPOTIFY_CREDENTIALS };
         let saved = serde_json::to_string(&reusable).map_err(network_error)?;
-        if vault.set_password(&saved).is_err() {
+        // Some Windows credential stores reject a newly-created target while
+        // still allowing the established entry from the previous app name.
+        // Keep that entry as a migration fallback rather than losing a valid
+        // OAuth session after it has already connected.
+        let stored = vault
+            .set_password(&saved)
+            .or_else(|_| {
+                keyring::Entry::new("spotisloth-desktop", "spotify-session")
+                    .and_then(|legacy| legacy.set_password(&saved))
+            })
+            .or_else(|_| {
+                keyring::Entry::new("fastify-desktop", "spotify-session")
+                    .and_then(|legacy| legacy.set_password(&saved))
+            });
+        if stored.is_err() {
             runtime.shutdown();
             session.shutdown();
             return Err(error(
