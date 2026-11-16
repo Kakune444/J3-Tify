@@ -69,13 +69,10 @@ fn parse(body: &[u8]) -> Result<Option<Lyrics>, LyricsError> {
         return Err(LyricsError::Response);
     }
     let payload: Payload = serde_json::from_slice(body).map_err(|_| LyricsError::Response)?;
-    let Some(lyrics) = payload.lyrics else { return Ok(None); };
-    if lyrics.lines.len() > 1000
-        || lyrics
-            .lines
-            .iter()
-            .any(|line| line.words.len() > 4096)
-    {
+    let Some(lyrics) = payload.lyrics else {
+        return Ok(None);
+    };
+    if lyrics.lines.len() > 1000 || lyrics.lines.iter().any(|line| line.words.len() > 4096) {
         return Err(LyricsError::Response);
     }
     if lyrics.lines.iter().all(|line| line.words.trim().is_empty()) {
@@ -91,12 +88,13 @@ fn parse(body: &[u8]) -> Result<Option<Lyrics>, LyricsError> {
         .collect();
     let synchronized = matches!(lyrics.sync_type.as_str(), "LINE_SYNCED" | "SYLLABLE_SYNCED")
         && lines.iter().all(|line| line.start_ms.is_some())
-        && lines.windows(2).all(|pair| pair[0].start_ms <= pair[1].start_ms);
+        && lines
+            .windows(2)
+            .all(|pair| pair[0].start_ms <= pair[1].start_ms);
     if !synchronized {
         lines.iter_mut().for_each(|line| line.start_ms = None);
     }
-    let background = payload
-        .colors["background"]
+    let background = payload.colors["background"]
         .as_i64()
         .filter(|n| (i64::from(i32::MIN)..=i64::from(u32::MAX)).contains(n))
         .map(|n| (n as u32) & 0x00ff_ffff);

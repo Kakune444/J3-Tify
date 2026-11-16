@@ -1142,7 +1142,9 @@ async fn get_lyrics(state: State<'_, Arc<Backend>>, uri: String) -> Result<Optio
     lyrics::fetch(&session, &uri)
         .await
         .map_err(|err| match err {
-            lyrics::LyricsError::InvalidTrack => error("INPUT", "Ce titre ne peut pas être vérifié."),
+            lyrics::LyricsError::InvalidTrack => {
+                error("INPUT", "Ce titre ne peut pas être vérifié.")
+            }
             lyrics::LyricsError::Unavailable => error(
                 "LYRICS_UNAVAILABLE",
                 "Spotify ne donne pas accès aux paroles de ce titre.",
