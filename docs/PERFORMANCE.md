@@ -4,18 +4,18 @@
 
 Cinq relances par client, sur le même PC : Intel Core i7-10700K, 16 processeurs
 logiques, 31,8 Gio de RAM, Windows 11 Professionnel 10.0.26200. Spotify
-`1.3.5.3058` et Spotisloth release `03946ba` sont testés à tour de rôle,
+`1.3.5.3058` et J3-Tify release `03946ba` sont testés à tour de rôle,
 maximisés en 3440 × 1440, avec leurs caches conservés. Chaque accueil chargé est
 suivi de 30 secondes de stabilisation puis de 30 secondes de relevé, sans lecture.
 
-| Mesure (médiane des cinq passages)        |   Spotify | Spotisloth avant correctif |
+| Mesure (médiane des cinq passages)        |   Spotify | J3-Tify avant correctif |
 | ----------------------------------------- | --------: | -------------------------: |
 | Accueil chargé après lancement            |     5,5 s |                      2,7 s |
 | RAM privée résidente au repos             | 750,6 Mio |                  145,5 Mio |
 | CPU moyen au repos, capacité totale du PC |    0,65 % |                     2,65 % |
 
 Les temps de démarrage vont de 5,4 à 7,0 s pour Spotify et de 2,5 à 3,8 s pour
-Spotisloth. La médiane utilise la borne supérieure du premier relevé prêt ; la
+J3-Tify. La médiane utilise la borne supérieure du premier relevé prêt ; la
 résolution des observations est d'environ 0,4 s. Ce sont des relances à chaud,
 pas des démarrages après redémarrage de Windows.
 
@@ -44,7 +44,7 @@ mémoire partagées peuvent être comptées plusieurs fois.
 
 ## Relevé du prototype Windows
 
-Le 15 octobre 2026, après connexion puis redémarrage de Spotisloth, 15 échantillons
+Le 15 octobre 2026, après connexion puis redémarrage de J3-Tify, 15 échantillons
 espacés d'une seconde ont été relevés, avec tous les descendants WebView2.
 Le client affichait l'accueil réel, sans lecture. La médiane de mémoire privée
 engagée était de **251,38 Mio**, sur sept processus. L'ancien arrondi ne permet
@@ -58,7 +58,7 @@ permettent pas de calculer un gain à fonctionnalités équivalentes.
 
 ## Comparaison à réaliser
 
-Tester Spotify et Spotisloth release sur le même PC, compte et réseau, à tour de rôle.
+Tester Spotify et J3-Tify release sur le même PC, compte et réseau, à tour de rôle.
 Fermer les applications avant les mesures à froid. Faire cinq passages par scénario.
 
 | Scénario                   | Mesures                                                            |
@@ -69,7 +69,7 @@ Fermer les applications avant les mesures à froid. Faire cinq passages par scé
 | Playlist longue            | Réactivité au défilement, mémoire après parcours                   |
 | Lecture pendant 10 minutes | Coupures, CPU, mémoire et croissance des caches                    |
 
-Inclure le processus Rust et **tous ses descendants WebView2** dans la mesure Spotisloth.
+Inclure le processus Rust et **tous ses descendants WebView2** dans la mesure J3-Tify.
 Ne pas comparer un shell vide avec un Spotify lisant de la musique. Indiquer les
 fonctions absentes et conserver les résultats bruts localement.
 
@@ -84,7 +84,7 @@ Les caches de Windows, du réseau et des applications sont conservés : il s’a
 de relances de processus à chaud, pas de démarrages après redémarrage du PC.
 Les clients sont lancés maximisés. Les mesures de lecture demandent 320 kbit/s
 dans les deux applications ; le réglage Spotify initial est rétabli après les essais.
-Pour Tauri, le script définit `SPOTISLOTH_BENCHMARK_MAXIMIZE=1` dans le processus
+Pour Tauri, le script définit `J3_TIFY_BENCHMARK_MAXIMIZE=1` dans le processus
 enfant : ce réglage de diagnostic maximise la fenêtre à sa création, sans modifier
 le lancement habituel ni les composants de l’interface.
 
@@ -111,7 +111,7 @@ totale de la machine), sans enregistrer les lignes de commande ni informations d
 
 ```powershell
 ./tools/Measure-Client.ps1 -Client Spotify -Seconds 15 -OutputPath .local/spotify-idle.json
-./tools/Measure-Client.ps1 -Client Spotisloth -Seconds 15 -OutputPath .local/spotisloth-idle.json
+./tools/Measure-Client.ps1 -Client J3-Tify -Seconds 15 -OutputPath .local/j3-tify-idle.json
 ```
 
 Le premier échantillon CPU est ignoré ; une application doit déjà être ouverte.

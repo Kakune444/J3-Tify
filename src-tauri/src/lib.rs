@@ -414,7 +414,7 @@ async fn connect_spotify(
         .app_local_data_dir()
         .map_err(network_error)?
         .join("connect-device-id");
-    if let Ok(saved) = std::fs::read_to_string(&device_path) {
+    if let Ok(saved) = std::fs::read_to_string(previous_local_path(&device_path)) {
         if !saved.is_empty()
             && saved.len() <= 80
             && saved
@@ -428,9 +428,10 @@ async fn connect_spotify(
         std::fs::create_dir_all(parent).map_err(network_error)?;
     }
     std::fs::write(&device_path, &config.device_id).map_err(network_error)?;
-    let vault = keyring::Entry::new("spotisloth-desktop", "spotify-session")
+    let vault = keyring::Entry::new("j3-tify-desktop", "spotify-session")
         .map_err(|_| error("STORAGE", "Le coffre Windows est indisponible."))?;
-    let local = std::env::var_os("SPOTISLOTH_SESSION_FILE")
+    let local = std::env::var_os("J3_TIFY_SESSION_FILE")
+        .or_else(|| std::env::var_os("SPOTISLOTH_SESSION_FILE"))
         .or_else(|| std::env::var_os("FASTIFY_SESSION_FILE"))
         .and_then(|p| std::fs::read(p).ok())
         .and_then(|b| {
@@ -445,6 +446,7 @@ async fn connect_spotify(
         Credentials::with_access_token(auth.access_token)
     } else if let Ok(saved) = vault
         .get_password()
+        .or_else(|_| keyring::Entry::new("spotisloth-desktop", "spotify-session")?.get_password())
         .or_else(|_| keyring::Entry::new("fastify-desktop", "spotify-session")?.get_password())
     {
         serde_json::from_str(&saved)
@@ -454,7 +456,7 @@ async fn connect_spotify(
         let token = tauri::async_runtime::spawn_blocking(move || {
             OAuthClientBuilder::new(&client_id, "http://127.0.0.1:8898/login", vec!["streaming"])
                 .open_in_browser()
-                .with_custom_message("Connexion terminée. Vous pouvez revenir dans Spotisloth.")
+                .with_custom_message("Connexion terminée. Vous pouvez revenir dans J3-Tify.")
                 .build()
                 .and_then(|client| client.get_access_token())
         })
@@ -471,7 +473,7 @@ async fn connect_spotify(
         return Err(error("AUTH_REQUIRED", "Connectez-vous à Spotify."));
     };
     let session = Session::new(config, None);
-    let quality = AudioPreferences::read(&audio_preferences_path(&app)?)
+    let quality = AudioPreferences::read(&previous_local_path(&audio_preferences_path(&app)?))
         .map_err(|_| error("STORAGE", "Impossible de lire les préférences audio."))?
         .quality;
     let mixer = SoftMixer::open(MixerConfig::default()).map_err(network_error)?;
@@ -564,7 +566,7 @@ async fn disconnect_spotify(state: State<'_, Arc<Backend>>) -> Result<()> {
     state.imported.lock().await.take();
     state.cache.lock().await.clear();
     state.profiles.clear().await;
-    for service in ["spotisloth-desktop", "fastify-desktop"] {
+    for service in ["j3-tify-desktop", "spotisloth-desktop", "fastify-desktop"] {
         if let Ok(entry) = keyring::Entry::new(service, "spotify-session") {
             match entry.delete_credential() {
                 Ok(()) | Err(keyring::Error::NoEntry) => {}
@@ -1064,6 +1066,20 @@ fn audio_preferences_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf> 
         .map_err(|_| error("STORAGE", "Les préférences audio sont indisponibles."))
 }
 
+// Prefer the current location. An upgrade still reads the two existing files
+// from the prior identifier until the app writes them under its new name.
+fn previous_local_path(current: &std::path::Path) -> std::path::PathBuf {
+    if matches!(current.try_exists(), Ok(false)) {
+        if let (Some(base), Some(name)) = (
+            current.parent().and_then(|p| p.parent()),
+            current.file_name(),
+        ) {
+            return base.join("io.github.kakune444.spotisloth").join(name);
+        }
+    }
+    current.to_owned()
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AudioSettings {
@@ -1088,7 +1104,7 @@ async fn get_audio_settings(
     state: State<'_, Arc<Backend>>,
 ) -> Result<AudioSettings> {
     let _connection = state.connection.lock().await;
-    let preferences = AudioPreferences::read(&audio_preferences_path(&app)?)
+    let preferences = AudioPreferences::read(&previous_local_path(&audio_preferences_path(&app)?))
         .map_err(|_| error("STORAGE", "Impossible de lire les préférences audio."))?;
     Ok(audio_settings(&state, preferences).await)
 }
@@ -1168,7 +1184,7 @@ async fn connect_command(
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            if std::env::var("SPOTISLOTH_BENCHMARK_MAXIMIZE").as_deref() == Ok("1") {
+            if std::env::var("J3_TIFY_BENCHMARK_MAXIMIZE").as_deref() == Ok("1") {
                 if let Some(window) = app.get_webview_window("main") {
                     window.maximize()?;
                 }
@@ -1215,7 +1231,7 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("Spotisloth could not start");
+        .expect("J3-Tify could not start");
 }
 
 #[cfg(test)]

@@ -1,12 +1,12 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Spotify','Spotisloth')][string]$Client,
+    [Parameter(Mandatory=$true)][ValidateSet('Spotify','J3-Tify')][string]$Client,
     [ValidateRange(3,900)][int]$Seconds=30,
     [ValidateSet('Idle','Navigation','Playback')][string]$Scenario='Idle',
     [ValidateRange(250,5000)][int]$IntervalMs=1000,
     [string]$OutputPath
 )
 $ErrorActionPreference='Stop'
-$rootName=if($Client -eq 'Spotify'){'Spotify.exe'}else{'spotisloth-desktop.exe'}
+$rootName=if($Client -eq 'Spotify'){'Spotify.exe'}else{'j3-tify-desktop.exe'}
 $samples=[Collections.Generic.List[object]]::new()
 $previousCpu=@{}
 $previousAt=$null

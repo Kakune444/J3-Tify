@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn saved_quality_survives_replacement_and_corruption_is_not_silently_reset() {
         let path =
-            std::env::temp_dir().join(format!("spotisloth-audio-{}.json", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("j3-tify-audio-{}.json", uuid::Uuid::new_v4()));
         assert_eq!(
             AudioPreferences::read(&path).unwrap(),
             AudioPreferences::default()

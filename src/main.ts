@@ -199,7 +199,7 @@ const byId = <T extends HTMLElement = HTMLElement>(id: string): T =>
 
 byId("app").innerHTML = `
   <header class="topbar">
-    <a class="brand" href="#" aria-label="Spotisloth, accueil">${icon("music")}<strong>Spotisloth</strong></a>
+    <a class="brand" href="#" aria-label="J3-Tify, accueil">${icon("music")}<strong>J3-Tify</strong></a>
     <div class="top-center"><button class="round home-button" id="home" aria-label="Accueil">${icon("home")}</button>
       <label class="search-box">${icon("search")}<input id="search" type="search" maxlength="200" placeholder="Que souhaitez-vous écouter ?" aria-label="Rechercher dans Spotify" autocomplete="off" spellcheck="false"/><span class="search-hint">Ctrl K</span></label>
     </div>
@@ -778,7 +778,7 @@ async function startTrack(uri: string, position?: number): Promise<void> {
   if (!status.nativeReady || !connectState.ready || connectPending) return;
   if (!/^spotify:track:[A-Za-z0-9]{22}$/.test(uri)) {
     showError({
-      message: "Ce type de contenu ne peut pas encore être lu dans Spotisloth.",
+      message: "Ce type de contenu ne peut pas encore être lu dans J3-Tify.",
     });
     return;
   }
@@ -1007,7 +1007,7 @@ async function connect(interactive: boolean): Promise<void> {
   if (!isTauri()) {
     if (interactive)
       showError({
-        message: "Ouvrez l’application Windows Spotisloth pour vous connecter.",
+        message: "Ouvrez l’application Windows J3-Tify pour vous connecter.",
       });
     return;
   }

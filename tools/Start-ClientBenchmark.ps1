@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Spotify','Spotisloth')][string]$Client,
+    [Parameter(Mandatory=$true)][ValidateSet('Spotify','J3-Tify')][string]$Client,
     [string]$ExecutablePath,
     [switch]$StopOnly,
     [ValidateSet('Normal','Maximized')][string]$WindowStyle='Maximized',
@@ -7,7 +7,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 if(!$ExecutablePath){
-    $ExecutablePath=if($Client -eq 'Spotify'){Join-Path $env:APPDATA 'Spotify/Spotify.exe'}else{Join-Path $PSScriptRoot '../.local/desktop/spotisloth-desktop.exe'}
+    $ExecutablePath=if($Client -eq 'Spotify'){Join-Path $env:APPDATA 'Spotify/Spotify.exe'}else{Join-Path $PSScriptRoot '../.local/desktop/j3-tify-desktop.exe'}
 }
 $executable=(Resolve-Path -LiteralPath $ExecutablePath).Path
 $rootName=[IO.Path]::GetFileNameWithoutExtension($executable)
@@ -27,11 +27,11 @@ foreach($process in $processes){
 }
 if($StopOnly){[pscustomobject]@{client=$Client;stopped=$true}|ConvertTo-Json;exit}
 $started=[DateTimeOffset]::UtcNow
-$previousBenchmarkFlag=[Environment]::GetEnvironmentVariable('SPOTISLOTH_BENCHMARK_MAXIMIZE','Process')
+$previousBenchmarkFlag=[Environment]::GetEnvironmentVariable('J3_TIFY_BENCHMARK_MAXIMIZE','Process')
 try{
-    [Environment]::SetEnvironmentVariable('SPOTISLOTH_BENCHMARK_MAXIMIZE',$(if($Client -eq 'Spotisloth' -and $WindowStyle -eq 'Maximized'){'1'}else{$null}),'Process')
+    [Environment]::SetEnvironmentVariable('J3_TIFY_BENCHMARK_MAXIMIZE',$(if($Client -eq 'J3-Tify' -and $WindowStyle -eq 'Maximized'){'1'}else{$null}),'Process')
     Start-Process -FilePath $executable -WorkingDirectory ([IO.Path]::GetDirectoryName($executable)) -WindowStyle $WindowStyle
-}finally{[Environment]::SetEnvironmentVariable('SPOTISLOTH_BENCHMARK_MAXIMIZE',$previousBenchmarkFlag,'Process')}
+}finally{[Environment]::SetEnvironmentVariable('J3_TIFY_BENCHMARK_MAXIMIZE',$previousBenchmarkFlag,'Process')}
 $result=[pscustomobject]@{
     client=$Client;startedAtUtc=$started.ToString('o');startedAtEpochMs=$started.ToUnixTimeMilliseconds()
     windowStyle=$WindowStyle;restart='process restart; OS and network caches retained'

@@ -1,10 +1,10 @@
-# Spotisloth
+# J3-Tify
 
 Client Spotify pour Windows, développé en Rust, Tauri et TypeScript.
 Objectif : retrouver l'interface et les fonctions habituelles avec une consommation
 mesurée, sans ajouter de nouvelles fonctions produit.
 
-Projet indépendant, sans affiliation à Spotify. Ancien nom : Fastify.
+Projet indépendant, sans affiliation à Spotify. Anciens noms : Fastify et Spotisloth.
 
 ## État
 
@@ -34,10 +34,12 @@ npm run tauri dev
 La connexion s'effectue dans le navigateur système. Le prototype utilise le flux
 OAuth de librespot. Sa compatibilité doit être vérifiée avec chaque compte ; un
 compte Premium est requis pour le moteur librespot. Les identifiants réutilisables
-sont conservés dans le coffre Windows. Aucun mot de passe n'est demandé par Spotisloth.
+sont conservés dans le coffre Windows. Aucun mot de passe n'est demandé par J3-Tify.
+Une mise à jour depuis Spotisloth conserve la connexion, les préférences audio et
+l’identité Spotify Connect de cet ordinateur.
 
 Pour le diagnostic local uniquement, on peut fournir un fichier ignoré par Git via
-`SPOTISLOTH_SESSION_FILE`. Ce mécanisme temporaire n'est pas la connexion normale.
+`J3_TIFY_SESSION_FILE`. Ce mécanisme temporaire n'est pas la connexion normale.
 
 ```powershell
 npm run check
@@ -65,7 +67,7 @@ un titre à la file d’attente. Dans la file, on peut déplacer les titres, en 
 un à lire ensuite ou retirer une occurrence. Cela ne modifie pas la playlist.
 
 Le bouton d’appareil, à côté de la file, ouvre « Se connecter à un appareil ».
-Choisir un appareil y transfère la lecture ; « Spotisloth — Cet ordinateur » la
+Choisir un appareil y transfère la lecture ; « J3-Tify — Cet ordinateur » la
 ramène ici. Un bandeau vert indique une lecture sur un autre appareil. Les appareils
 doivent être connectés au même compte Spotify. Les commandes indisponibles sur
 l’appareil actif sont désactivées.
@@ -73,7 +75,7 @@ l’appareil actif sont désactivées.
 Dans ce sélecteur, « Lancer un Jam » ouvre la session partagée avec ses membres,
 son lien et son QR code d'invitation. L'hôte peut la terminer après confirmation.
 La participation depuis un autre compte reste à vérifier ; rejoindre un Jam depuis
-un lien dans Spotisloth et gérer les droits des membres restent à développer.
+un lien dans J3-Tify et gérer les droits des membres restent à développer.
 Voir [le détail de cette intégration](docs/JAM.md).
 
 Le menu du compte propose « Préférences » → « Qualité audio » : 96, 160 ou
@@ -99,6 +101,6 @@ en local dans les dossiers ignorés par Git. Ne jamais les joindre à une issue.
 
 Le moteur audio utilise [librespot](https://github.com/librespot-org/librespot), sous
 licence MIT. Les pochettes et contenus restent fournis par Spotify.
-Une [petite adaptation locale](vendor/librespot-connect/SPOTISLOTH.md) expose les
+Une [petite adaptation locale](vendor/librespot-connect/J3-Tify.md) expose les
 états Connect déjà reçus par ce moteur, sans ajouter de requêtes réseau, et corrige
 la désactivation du récepteur lors d’un transfert sortant.

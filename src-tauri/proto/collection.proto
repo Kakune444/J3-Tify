@@ -1,5 +1,5 @@
 syntax = "proto3";
-package spotisloth.spotify.collection;
+package j3_tify.spotify.collection;
 
 message CollectionItem {
   string uri = 1;

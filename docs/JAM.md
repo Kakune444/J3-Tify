@@ -36,5 +36,5 @@ ou les données d'un autre compte après déconnexion.
 
 Ces routes internes peuvent changer. Cette première intégration couvre l'hôte,
 l'invitation et l'affichage des membres. Rejoindre un Jam depuis un lien dans
-Spotisloth, retirer des participants et modifier leurs autorisations restent à
+J3-Tify, retirer des participants et modifier leurs autorisations restent à
 implémenter. Les invités utilisent actuellement Spotify pour ouvrir l'invitation.

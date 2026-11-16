@@ -11,16 +11,16 @@ Compiler `spotify-probe` sur Windows avec les prérequis Rust MSVC :
 cargo build --release --locked --manifest-path tools/spotify-probe/Cargo.toml
 ```
 
-Après une connexion normale à Spotisloth, vérifier la réutilisation de sa session
+Après une connexion normale à J3-Tify, vérifier la réutilisation de sa session
 et la première page de bibliothèque :
 
 ```powershell
 ./tools/spotify-probe/target/release/spotify-probe.exe --stored --library
 ```
 
-Seule l'entrée du coffre appartenant à Spotisloth est lue. La sortie affiche des
+Seule l'entrée du coffre appartenant à J3-Tify est lue. La sortie affiche des
 résultats et des compteurs, sans identifiants ni jetons. `--library` est en lecture
-seule. Si `SPOTISLOTH_DIAGNOSTIC_DIR` est défini, la réponse d'images est enregistrée
+seule. Si `J3_TIFY_DIAGNOSTIC_DIR` est défini, la réponse d'images est enregistrée
 dans ce dossier ; utiliser uniquement un dossier local ignoré comme `.local`.
 
 Le mode historique accepte aussi un fichier JSON local avec `accessToken` et un
@@ -58,7 +58,7 @@ titre courant et retire uniquement la nouvelle occurrence confirmée dans la fil
 Le serveur peut renuméroter les UID : la sonde vérifie donc aussi le préfixe manuel
 et l’ordre des autres titres avant le retrait.
 Ces deux modes modifient réellement la lecture ; les exécuter séparément avec le
-lecteur en pause et fermer Spotisloth auparavant. Les réponses affichées décrivent
+lecteur en pause et fermer J3-Tify auparavant. Les réponses affichées décrivent
 les compteurs, les types et les noms des champs ; elles ne contiennent ni URI,
 nom d’appareil, identifiant du compte, ni jeton.
 
@@ -68,7 +68,7 @@ brièvement le son pendant le changement d’appareil. Le préfixe de file est c
 sans afficher les URI.
 
 `--connect-volume-roundtrip` vérifie un changement de volume avec le lecteur en
-pause, puis remet le niveau initial. `SPOTISLOTH_CONNECT_TRACE=1` affiche uniquement
+pause, puis remet le niveau initial. `J3_TIFY_CONNECT_TRACE=1` affiche uniquement
 le type d’opération, la méthode HTTP et le code de réponse. Le volume utilise PUT,
 conformément à la [correction du client spogo](https://github.com/openclaw/spogo/pull/24/files).
 
@@ -82,11 +82,11 @@ personnelle sans vérification.
 
 `--stored --connect-jam-roundtrip` vérifie l'absence de Jam, crée une session,
 relit son état, attend une notification Connect puis termine uniquement la session
-renvoyée. Fermer Spotisloth avant le test. Le diagnostic refuse une session déjà
+renvoyée. Fermer J3-Tify avant le test. Le diagnostic refuse une session déjà
 existante et n'envoie aucune invitation. Il affiche des booléens et des compteurs,
 sans lien d'invitation, membre, identifiant ou jeton.
 
-`SPOTISLOTH_JAM_TRACE=1` ajoute uniquement le statut HTTP et l'indication de mutation.
+`J3_TIFY_JAM_TRACE=1` ajoute uniquement le statut HTTP et l'indication de mutation.
 
 ## Ressources
 

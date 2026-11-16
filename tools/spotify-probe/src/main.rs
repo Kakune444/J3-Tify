@@ -42,8 +42,11 @@ async fn main() {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let stored = std::env::args().any(|arg| arg == "--stored");
     let (credentials, uri) = if stored {
-        let saved = keyring::Entry::new("spotisloth-desktop", "spotify-session")?
+        let saved = keyring::Entry::new("j3-tify-desktop", "spotify-session")?
             .get_password()
+            .or_else(|_| {
+                keyring::Entry::new("spotisloth-desktop", "spotify-session")?.get_password()
+            })
             .or_else(|_| {
                 keyring::Entry::new("fastify-desktop", "spotify-session")?.get_password()
             })?;
@@ -647,13 +650,13 @@ async fn diagnose_playlist(session: &Session) -> Result<(), Box<dyn std::error::
     let api = LibraryApi::new(session, &client);
     let uri = api
         .create_playlist(
-            "Spotisloth — test édition",
-            "Validation temporaire de Spotisloth.",
+            "J3-Tify — test édition",
+            "Validation temporaire de J3-Tify.",
         )
         .await
         .map_err(|e| format!("{e:?}"))?;
     println!("PLAYLIST_CREATED_PRIVATE");
-    if let Some(directory) = std::env::var_os("SPOTISLOTH_DIAGNOSTIC_DIR") {
+    if let Some(directory) = std::env::var_os("J3_TIFY_DIAGNOSTIC_DIR") {
         std::fs::create_dir_all(&directory)?;
         std::fs::write(PathBuf::from(directory).join("test-playlist-uri.txt"), &uri)?;
     }
@@ -666,7 +669,7 @@ async fn diagnose_playlist(session: &Session) -> Result<(), Box<dyn std::error::
             &uri,
             Some(&stale_revision),
             &PlaylistEdit::Details {
-                name: "Spotisloth — test renommé".into(),
+                name: "J3-Tify — test renommé".into(),
                 description: "Description modifiée.".into(),
             },
         )
@@ -823,7 +826,7 @@ async fn diagnose_library(session: &Session) -> Result<(), Box<dyn std::error::E
         response["errors"].as_array().map_or(0, Vec::len)
     );
     // Explicit opt-in: this file contains private library metadata and must stay local.
-    if let Some(directory) = std::env::var_os("SPOTISLOTH_DIAGNOSTIC_DIR") {
+    if let Some(directory) = std::env::var_os("J3_TIFY_DIAGNOSTIC_DIR") {
         std::fs::create_dir_all(&directory)?;
         std::fs::write(
             PathBuf::from(directory).join("library.json"),

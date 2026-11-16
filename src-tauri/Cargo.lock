@@ -4193,7 +4193,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spotisloth-desktop"
+name = "j3-tify-desktop"
 version = "0.1.0"
 dependencies = [
  "futures-util",

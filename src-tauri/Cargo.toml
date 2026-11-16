@@ -1,12 +1,12 @@
 [package]
-name = "spotisloth-desktop"
+name = "j3-tify-desktop"
 version = "0.1.0"
 description = "Lightweight Spotify desktop client"
 edition = "2024"
 publish = false
 
 [lib]
-name = "spotisloth_lib"
+name = "j3_tify_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

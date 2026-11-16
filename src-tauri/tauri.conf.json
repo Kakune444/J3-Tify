@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Spotisloth",
+  "productName": "J3-Tify",
   "version": "0.1.0",
-  "identifier": "io.github.kakune444.spotisloth",
+  "identifier": "io.github.kakune444.j3-tify",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Spotisloth",
+        "title": "J3-Tify",
         "dragDropEnabled": false,
         "width": 1440,
         "height": 900,

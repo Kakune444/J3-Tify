@@ -224,7 +224,7 @@ impl JamClient {
             }
         })?;
         let status = response.status().as_u16();
-        if std::env::var("SPOTISLOTH_JAM_TRACE").as_deref() == Ok("1") {
+        if std::env::var("J3_TIFY_JAM_TRACE").as_deref() == Ok("1") {
             eprintln!("JAM_HTTP: mutation={mutation} status={status}");
         }
         match status {

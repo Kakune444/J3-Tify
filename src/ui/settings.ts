@@ -28,7 +28,7 @@ export class AudioSettingsView {
         <div class="setting-row"><div><label for="audio-quality">Qualité du streaming</label><p>Qualité demandée pour la lecture sur cet ordinateur. Elle peut varier selon le titre disponible.</p></div>
         <select id="audio-quality">${qualityOptions.map((o) => `<option value="${o.value}" ${o.value === settings.quality ? "selected" : ""}>${o.label}</option>`).join("")}<option disabled>Lossless — indisponible</option></select></div>
         <p class="setting-notice" id="audio-quality-notice" role="status"></p>
-        <div class="setting-row"><div><strong>Lossless</strong><p>La lecture locale de Spotisloth ne prend pas en charge la qualité sans perte. Sur un autre appareil compatible, utilise les réglages de qualité de Spotify.</p></div><span class="quality-unavailable">Indisponible ici</span></div>
+        <div class="setting-row"><div><strong>Lossless</strong><p>La lecture locale de J3-Tify ne prend pas en charge la qualité sans perte. Sur un autre appareil compatible, utilise les réglages de qualité de Spotify.</p></div><span class="quality-unavailable">Indisponible ici</span></div>
         <h2>Lecture en cours</h2><div class="setting-row"><div><strong id="quality-device"></strong><p>Qualité signalée par l’appareil de lecture.</p></div><span id="reported-quality"></span></div>`;
       this.notice(settings);
       this.update(this.state);
@@ -64,7 +64,7 @@ export class AudioSettingsView {
     const notice = this.root?.querySelector("#audio-quality-notice");
     if (notice)
       notice.textContent = settings.restartRequired
-        ? `Qualité enregistrée. Redémarre Spotisloth pour appliquer ce réglage. Réglage actif : ${qualityLabel(settings.activeQuality)}.`
+        ? `Qualité enregistrée. Redémarre J3-Tify pour appliquer ce réglage. Réglage actif : ${qualityLabel(settings.activeQuality)}.`
         : "La qualité choisie est enregistrée sur cet ordinateur.";
   }
 

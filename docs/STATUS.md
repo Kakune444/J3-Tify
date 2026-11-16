@@ -61,7 +61,7 @@ seulement à l’ouverture du sélecteur ; leur contenu n’est pas préchargé.
 
 ## Vérification des mutations Spotify
 
-La sonde utilise la session de Spotisloth dans le coffre Windows. Le test de favori
+La sonde utilise la session de J3-Tify dans le coffre Windows. Le test de favori
 choisit un titre initialement absent, confirme son ajout, puis confirme son retrait.
 Le test de playlist crée un élément privé temporaire, vérifie les opérations et
 le retire de la bibliothèque à la fin. Il vérifie aussi qu’une ancienne révision
@@ -108,7 +108,7 @@ Un appareil distant compatible peut utiliser son propre moteur lossless.
 La page Préférences utilise le niveau courant de `playback_quality`, jamais son
 niveau cible. Les niveaux HiFi exigent aussi `hifi_status=on`. Une capacité annoncée,
 un niveau inconnu ou un état de chargement ne produit pas d’indication Lossless.
-Le rapport distant est ignoré lorsque Spotisloth devient l’appareil actif pour éviter
+Le rapport distant est ignoré lorsque J3-Tify devient l’appareil actif pour éviter
 de reprendre la qualité du lecteur précédent. Il ne constitue pas une mesure du
 signal reçu par un casque ou un DAC. Le réglage de qualité d’un autre appareil reste
 dans Spotify, selon [la procédure officielle](https://support.spotify.com/fr/article/lossless-audio-quality/).
@@ -119,7 +119,7 @@ Le même moteur Rust assure la lecture audio et le récepteur Connect. La répon
 d’inscription et les mises à jour du serveur alimentent l’interface ; elle ne
 demande pas l’état Spotify en boucle. L’identifiant de cet ordinateur est conservé
 localement pour retrouver le même appareil après redémarrage. La session conservée
-sous l’ancien nom Fastify est reprise dans le coffre Spotisloth après connexion.
+sous l’ancien nom Fastify est reprise dans le coffre J3-Tify après connexion.
 
 La liste d’appareils, le titre, la position, les modes et la file suivent l’appareil
 actif. Le moteur gère aussi les fins de morceaux ; l’interface ne fait plus avancer
@@ -147,7 +147,7 @@ concurrent l’interrompt. La position et l’état lecture/pause sont égalemen
 si nécessaire, après confirmation de la destination.
 
 La copie locale de librespot-connect 0.8.0 conserve sa licence et son empreinte
-d’origine. Son [adaptation documentée](../vendor/librespot-connect/SPOTISLOTH.md)
+d’origine. Son [adaptation documentée](../vendor/librespot-connect/J3-Tify.md)
 publie les états déjà reçus lors de l’inscription, des commandes et des mises à jour.
 Elle ajoute un canal borné en mémoire, sans nouveau trafic réseau.
 Elle corrige aussi l’ordre de désactivation lors d’un transfert sortant pour que
@@ -159,7 +159,7 @@ permettre le glisser-déposer HTML des lignes. Ce réglage suit la
 
 L’implémentation utilise les appareils enregistrés sur le compte. La découverte
 locale par mDNS et l’appairage Cast ne sont pas implémentés.
-Le Jam permet d'héberger et d'inviter ; rejoindre depuis un lien dans Spotisloth
+Le Jam permet d'héberger et d'inviter ; rejoindre depuis un lien dans J3-Tify
 et gérer les autorisations des participants restent à implémenter.
 Les appareils physiques, les restrictions propres à chaque modèle et une longue
 perte réseau nécessitent des vérifications supplémentaires.
@@ -169,16 +169,16 @@ ne garantit pas le même tirage aléatoire au-delà de ce tampon.
 ## Version vérifiée
 
 Code compilé : `862abde`.
-[Compilation Windows et tests](https://github.com/Kakune444/spotisloth/actions/runs/39303187533)
+[Compilation Windows et tests](https://github.com/Kakune444/J3-Tify/actions/runs/39303187533)
 réussis : 31 tests TypeScript et 38 tests Rust. Les vérifications utilisent le
-compte local, avec Spotify Windows et le récepteur Spotisloth. Elles ne constituent
+compte local, avec Spotify Windows et le récepteur J3-Tify. Elles ne constituent
 pas une validation de tous les appareils Connect.
 
 Dans `862abde`, le cycle Jam réel confirme la création, le lien partageable,
 la relecture, une notification Dealer et la fermeture avec retour à l'absence de
 session. Le panneau Tauri affiche l'hôte, sa photo et le QR code ; « Copier le lien »
-confirme la copie. Un transfert en lecture vers Spotisloth conserve le Jam ; le
-serveur confirme Spotisloth comme appareil hôte et la position continue de progresser.
+confirme la copie. Un transfert en lecture vers J3-Tify conserve le Jam ; le
+serveur confirme J3-Tify comme appareil hôte et la position continue de progresser.
 Le protocole et les limites sont détaillés dans [JAM.md](JAM.md).
 
 Dans `33bafd3`, la sonde confirme le nom public et la photo du compte, la relecture
@@ -203,7 +203,7 @@ accueil, titre distant, bandeau de lecture, sélecteur d’appareils et affichag
 file partagée sont vérifiés.
 
 La sonde de `670abfb`, qui utilise le même service Rust, confirme les transferts
-Spotify → Spotisloth → Spotify en lecture et en pause. Elle vérifie le même morceau,
+Spotify → J3-Tify → Spotify en lecture et en pause. Elle vérifie le même morceau,
 la position à deux secondes près, les modes aléatoire/répétition et les 40 premières
 occurrences à suivre. Le volume est modifié puis restauré avec confirmation serveur.
 Un doublon est ajouté puis son occurrence précise retirée ; les autres titres sont

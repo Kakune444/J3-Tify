@@ -274,7 +274,7 @@ impl ConnectModel {
         let Some(c) = &self.cluster else {
             view.devices.push(DeviceView {
                 id: self.local.clone(),
-                name: "Spotisloth — Cet ordinateur".into(),
+                name: "J3-Tify — Cet ordinateur".into(),
                 kind: "computer".into(),
                 local: true,
                 active: false,
@@ -291,7 +291,7 @@ impl ConnectModel {
             .map(|(id, d)| DeviceView {
                 id: id.clone(),
                 name: if id == &self.local {
-                    "Spotisloth — Cet ordinateur".into()
+                    "J3-Tify — Cet ordinateur".into()
                 } else {
                     d.name.clone()
                 },
@@ -316,7 +316,7 @@ impl ConnectModel {
         if !view.devices.iter().any(|d| d.local) {
             view.devices.push(DeviceView {
                 id: self.local.clone(),
-                name: "Spotisloth — Cet ordinateur".into(),
+                name: "J3-Tify — Cet ordinateur".into(),
                 kind: "computer".into(),
                 local: true,
                 active: false,
@@ -540,7 +540,7 @@ impl ConnectRuntime {
             Duration::from_secs(40),
             Spirc::new_with_state(
                 ConnectConfig {
-                    name: "Spotisloth".into(),
+                    name: "J3-Tify".into(),
                     device_type: DeviceType::Computer,
                     ..ConnectConfig::default()
                 },
@@ -646,7 +646,7 @@ impl ConnectRuntime {
         }
         // Writes are submitted once. A lost acknowledgement must not duplicate next/add/transfer.
         let response = request.send().await.map_err(|_| ConnectError::Uncertain)?;
-        if std::env::var("SPOTISLOTH_CONNECT_TRACE").as_deref() == Ok("1") {
+        if std::env::var("J3_TIFY_CONNECT_TRACE").as_deref() == Ok("1") {
             let operation = if path.contains("/volume/") {
                 "volume"
             } else if path.contains("/transfer/") {
@@ -979,7 +979,7 @@ impl ConnectRuntime {
                 let skip = index
                     .map(|i| json!({"track_index":i}))
                     .unwrap_or_else(|| json!({"track_uri":uri}));
-                return self.remote(target,json!({"endpoint":"play","context":context,"play_origin":{"feature_identifier":"spotisloth"},"options":{"skip_to":skip,"player_options_override":{"shuffling_context":shuffle,"repeating_context":repeat.0,"repeating_track":repeat.1}}})).await;
+                return self.remote(target,json!({"endpoint":"play","context":context,"play_origin":{"feature_identifier":"j3-tify"},"options":{"skip_to":skip,"player_options_override":{"shuffling_context":shuffle,"repeating_context":repeat.0,"repeating_track":repeat.1}}})).await;
             }
             ConnectAction::Pause => {
                 if view.restrictions.pause {
