@@ -100,6 +100,7 @@ et la compatibilité de l’appareil ne suffisent pas à afficher « Lossless »
 - [Étude de faisabilité](docs/FEASIBILITY.md)
 - [Protocole de mesure](docs/PERFORMANCE.md)
 - [État des fonctions et vérifications](docs/STATUS.md)
+- [Inventaire des captures Fiddler](docs/FIDDLER-INVENTORY.md)
 
 Les captures Fiddler, cookies, jetons, historiques et données personnelles restent
 en local dans les dossiers ignorés par Git. Ne jamais les joindre à une issue.
