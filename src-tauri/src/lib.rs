@@ -1295,6 +1295,18 @@ async fn jam_client(state: &Backend) -> Result<Arc<JamClient>> {
         .ok_or_else(|| error("AUTH_REQUIRED", "Connectez-vous à Spotify."))
 }
 #[tauri::command]
+fn open_jam_invitation(url: String) -> Result<()> {
+    let link = jam::spotify_invite(url.trim())
+        .ok_or_else(|| error("INPUT", "Lien d’invitation Spotify invalide."))?;
+    // The shell receives one validated HTTPS URL as a single argument.
+    std::process::Command::new("explorer.exe")
+        .arg(link)
+        .spawn()
+        .map_err(network_error)?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_jam(state: State<'_, Arc<Backend>>) -> Result<Option<JamSession>> {
     jam_client(&state)
         .await?
@@ -1367,6 +1379,7 @@ pub fn run() {
             get_track_details,
             get_connect_state,
             get_lyrics,
+            open_jam_invitation,
             get_jam,
             create_jam,
             end_jam,

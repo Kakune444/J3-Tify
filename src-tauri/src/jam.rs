@@ -38,7 +38,10 @@ fn valid_id(id: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
-fn spotify_invite(value: &str) -> Option<String> {
+pub fn spotify_invite(value: &str) -> Option<String> {
+    if value.len() > 2048 {
+        return None;
+    }
     let url = Url::parse(value).ok()?;
     (url.scheme() == "https"
         && matches!(url.host_str(), Some("open.spotify.com" | "spotify.link"))
@@ -48,10 +51,11 @@ fn spotify_invite(value: &str) -> Option<String> {
         && if url.host_str() == Some("spotify.link") {
             valid_id(url.path().trim_start_matches('/'))
         } else {
-            url.path().starts_with("/socialsession/")
-                && url
-                    .path_segments()
-                    .is_some_and(|mut p| p.nth(1).is_some_and(valid_id))
+            url.path_segments().is_some_and(|mut p| {
+                p.next() == Some("socialsession")
+                    && p.next().is_some_and(valid_id)
+                    && p.all(|s| s.is_empty())
+            })
         })
     .then(|| url.to_string())
 }

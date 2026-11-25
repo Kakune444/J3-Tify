@@ -34,6 +34,19 @@ export class JamView {
       if (action === "end") this.confirmEnd();
       if (action === "copy") void this.copy();
     });
+    root.addEventListener("submit", async event => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || !form.matches("[data-invitation]")) return;
+      event.preventDefault();
+      const link = String(new FormData(form).get("invite") ?? "").trim();
+      const submit = form.querySelector<HTMLButtonElement>("button")!;
+      submit.disabled = true;
+      try {
+        await invoke("open_jam_invitation", {url: link});
+        form.querySelector<HTMLElement>("[role=status]")!.textContent = "Confirmez votre participation dans Spotify.";
+      } catch (error) { this.error(error); }
+      finally { submit.disabled = false; }
+    });
     root.addEventListener("keydown", (event) => {
       if (event.key === "Escape") this.close();
     });
@@ -175,7 +188,7 @@ export class JamView {
     } else if (!model.loaded && !model.error)
       content = '<p class="jam-help" role="status">Chargement du Jam…</p>';
     else
-      content = `<h3>Écoutez ensemble</h3><p class="jam-help">Invitez vos proches à écouter et à ajouter des titres à la file d’attente.</p><button class="pill white" data-jam="create" ${disabled ? "disabled" : ""}>Lancer un Jam</button><p class="jam-help">Spotify Premium est nécessaire pour lancer un Jam.</p>`;
+      content = `<h3>Écoutez ensemble</h3><p class="jam-help">Invitez vos proches à écouter et à ajouter des titres à la file d’attente.</p><button class="pill white" data-jam="create" ${disabled ? "disabled" : ""}>Lancer un Jam</button><p class="jam-help">Spotify Premium est nécessaire pour lancer un Jam.</p><form class="playlist-form" data-invitation><label>Lien d’invitation<input name="invite" type="url" placeholder="https://…" maxlength="2048" required></label><button class="pill" ${disabled ? "disabled" : ""}>Ouvrir l’invitation dans Spotify</button><p role="status"></p></form>`;
     const error = model.error as { message?: string } | null;
     this.root.innerHTML = `<div class="jam-panel-heading"><h2>Jam</h2><button class="icon-button" data-jam="close" aria-label="Fermer le panneau Jam">×</button></div>${content}${error ? `<p class="jam-error" role="alert">${esc(error.message || "Impossible de vérifier le Jam.")}</p><button class="pill" data-jam="retry" ${model.busy ? "disabled" : ""}>Réessayer</button>` : ""}`;
     if (focused)
