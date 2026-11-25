@@ -27,6 +27,7 @@ import { QueueView } from "./ui/queue.ts";
 import { AudioSettingsView } from "./ui/settings.ts";
 import { JamView } from "./ui/jam.ts";
 import { LyricsView } from "./ui/lyrics.ts";
+import { PlayerInputs } from "./lib/player-input.ts";
 
 type Status = {
   connected: boolean;
@@ -80,6 +81,10 @@ const queue = new PlaybackQueue<Card>();
 let connectState = emptyConnectState();
 let connectPending = false;
 let connectEpoch = 0;
+const playerInputs = new PlayerInputs(
+  action => invoke("connect_command", { action, deviceId: commandDevice(connectState) }),
+  showError,
+);
 const connectQueueKeys = new Map<number, string>();
 const connectQueued = new Set<number>();
 const connectMetadata = new Map<string, NativeTrack>();
@@ -269,6 +274,7 @@ function showError(value: unknown): void {
     toast.hidden = true;
   }, 6500);
   if (err.code === "AUTH_REQUIRED") {
+    playerInputs.reset();
     jamView.setReady(false);
     accountProfile = null;
     status.connected = false;
@@ -748,6 +754,7 @@ async function sendConnect(
   device = commandDevice(connectState),
 ): Promise<void> {
   if (connectPending || !connectState.ready) return;
+  if (action.kind === "transfer" || action.kind === "play") playerInputs.reset();
   const epoch = connectEpoch;
   connectPending = true;
   updateControls();
@@ -818,22 +825,33 @@ async function startTrack(uri: string, position?: number): Promise<void> {
   });
 }
 async function command(command: string, value?: number): Promise<void> {
-  if (command === "seek" || command === "volume")
-    await sendConnect({ kind: command, value: value ?? 0 });
+  if (command === "seek")
+    await sendConnect({ kind: "seek", value: value ?? 0 });
   else await sendConnect({ kind: command === "play" ? "resume" : "pause" });
 }
 function step(direction: number): void {
-  void sendConnect({ kind: direction < 0 ? "previous" : "next" });
+  playerInputs.push({ kind: direction < 0 ? "previous" : "next" });
 }
 function togglePlayback(): void {
   if (playback.track) void command(playback.playing ? "pause" : "play");
 }
 function applyConnect(next: ConnectState): void {
   const previous = connectState;
+  if (!next.ready || previous.activeDeviceId !== next.activeDeviceId) playerInputs.reset();
   connectState = next;
   audioSettings.update(next);
   const cached = next.track ? connectMetadata.get(next.track.uri) : undefined;
   const track = next.track ? { ...next.track, ...(cached ?? {}) } : null;
+  const needsDetails = track?.name === "Chargement du titre…";
+  if (track && needsDetails) {
+    const card = cards.get(track.uri) ?? queue.upcoming.find(e => e.track.uri === track.uri)?.track;
+    if (card?.kind === "track") {
+      track.name = card.name;
+      track.artist ||= card.subtitle;
+      track.image ||= card.image;
+      track.durationMs ||= card.durationMs;
+    }
+  }
   const changed =
     previous.revision !== next.revision || previous.track?.uri !== track?.uri;
   const metadataChanged =
@@ -903,7 +921,7 @@ function applyConnect(next: ConnectState): void {
     : "";
   document.body.classList.toggle("remote-playback", remote);
   if (
-    track?.name === "Chargement du titre…" &&
+    track && needsDetails &&
     !metadataPending.has(track.uri)
   ) {
     const epoch = connectEpoch;
@@ -959,12 +977,10 @@ function updateControls(): void {
     connectState.devices.find((d) => d.active)?.volume === null;
   byId<HTMLButtonElement>("previous").disabled =
     !hasTrack ||
-    playback.loading ||
     queuePreparing ||
     connectState.restrictions.previous;
   byId<HTMLButtonElement>("next").disabled =
     !hasTrack ||
-    playback.loading ||
     queuePreparing ||
     connectState.restrictions.next;
   const shuffle = byId<HTMLButtonElement>("shuffle");
@@ -1112,6 +1128,7 @@ document.addEventListener("click", async (event) => {
   }
   if (id === "connect" || id === "welcome-connect") void connect(true);
   if (id === "disconnect") {
+    playerInputs.reset();
     jamView.setReady(false);
     lyricsView.reset();
     ++connectEpoch;
@@ -1246,8 +1263,8 @@ byId<HTMLInputElement>("seek").addEventListener("change", (event) => {
     ),
   );
 });
-byId<HTMLInputElement>("volume").addEventListener("change", (event) => {
-  void command("volume", Number((event.target as HTMLInputElement).value));
+byId<HTMLInputElement>("volume").addEventListener("input", (event) => {
+  playerInputs.push({ kind: "volume", value: Number((event.target as HTMLInputElement).value) });
 });
 document.addEventListener("keydown", (event) => {
   const target = event.target as HTMLElement;

@@ -708,7 +708,12 @@ impl SpircTask {
             SpircCommand::Repeat(repeat) => self.handle_repeat_context(repeat)?,
             SpircCommand::RepeatTrack(repeat) => self.handle_repeat_track(repeat),
             SpircCommand::SetPosition(position) => self.handle_seek(position),
-            SpircCommand::SetVolume(volume) => self.set_volume(volume),
+            SpircCommand::SetVolume(volume) => {
+                // The mixer changes immediately. The existing delayed volume
+                // notification publishes the final level to other devices.
+                self.set_volume(volume);
+                return Ok(());
+            }
             SpircCommand::Load(command) => self.handle_load(command, None, None).await?,
         };
 
