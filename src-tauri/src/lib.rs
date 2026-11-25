@@ -191,8 +191,16 @@ struct CollectionTrack {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LikedPage {
-    tracks: Vec<TrackView>,
-    next_token: Option<String>,
+    tracks: Vec<LikedTrack>,
+    total: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LikedTrack {
+    #[serde(flatten)]
+    track: TrackView,
+    added_at: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -753,24 +761,72 @@ async fn set_saved_track(state: State<'_, Arc<Backend>>, uri: String, saved: boo
     Ok(())
 }
 
+fn parse_liked_page(value: &Value) -> Result<LikedPage> {
+    let page = value
+        .pointer("/data/me/library/tracks")
+        .ok_or_else(|| error("QUERY", "Favoris indisponibles."))?;
+    let total = page["totalCount"]
+        .as_u64()
+        .ok_or_else(|| error("QUERY", "Nombre de favoris indisponible."))? as usize;
+    let entries = page["items"]
+        .as_array()
+        .ok_or_else(|| error("QUERY", "Liste de favoris indisponible."))?;
+    let tracks = entries
+        .iter()
+        .map(|entry| {
+            let item = &entry["track"]["data"];
+            let uri = entry
+                .pointer("/track/_uri")
+                .or_else(|| item.get("uri"))
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let artists = item
+                .pointer("/artists/items")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|a| a.pointer("/profile/name")?.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            LikedTrack {
+                track: TrackView {
+                    uri: uri.to_owned(),
+                    name: item["name"].as_str().unwrap_or("Titre indisponible").into(),
+                    artist: artists,
+                    album: item
+                        .pointer("/albumOfTrack/name")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .into(),
+                    image: item
+                        .pointer("/albumOfTrack/coverArt/sources/0/url")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .into(),
+                    duration_ms: item
+                        .pointer("/duration/totalMilliseconds")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0) as u32,
+                },
+                added_at: entry["addedAt"]
+                    .as_str()
+                    .or_else(|| entry.pointer("/addedAt/isoString").and_then(Value::as_str))
+                    .map(str::to_owned),
+            }
+        })
+        .collect();
+    Ok(LikedPage { tracks, total })
+}
+
 #[tauri::command]
-async fn get_liked_tracks(
-    state: State<'_, Arc<Backend>>,
-    token: Option<String>,
-) -> Result<LikedPage> {
-    let _slot = state.requests.acquire().await.map_err(network_error)?;
-    state.check_library_cooldown().await?;
-    let session = state.session().await?;
-    let (uris, next_token) = state
-        .library_result(
-            LibraryApi::new(&session, &state.client)
-                .liked_page(token.as_deref().unwrap_or(""))
-                .await,
-        )
+async fn get_liked_tracks(state: State<'_, Arc<Backend>>, offset: usize) -> Result<LikedPage> {
+    if offset > 100_000 {
+        return Err(error("INPUT", "Page de favoris invalide."));
+    }
+    let response = state
+        .query("fetchLibraryTracks", json!({"offset":offset,"limit":40}))
         .await?;
-    drop(_slot);
-    let tracks = state.track_views(&session, uris).await?;
-    Ok(LikedPage { tracks, next_token })
+    parse_liked_page(&response)
 }
 
 #[tauri::command]
@@ -1338,6 +1394,29 @@ mod tests {
     use librespot_protocol::playlist4_external::{
         Item, ListAttributes, ListItems, MetaItem, SelectedListContent,
     };
+
+    #[test]
+    fn favorites_keep_server_order_dates_and_unavailable_rows() {
+        let page = json!({"data":{"me":{"library":{"tracks":{"totalCount":80,"items":[
+            {"addedAt":"2026-11-25T00:00:00Z","track":{"_uri":"new","data":{"name":"Z"}}},
+            {"track":{"_uri":"unavailable","data":{}}},
+            {"track":{"_uri":"old","data":{"name":"A"}}}
+        ]}}}}});
+        let liked = parse_liked_page(&page).unwrap();
+        assert_eq!(liked.total, 80);
+        assert_eq!(
+            liked
+                .tracks
+                .iter()
+                .map(|t| t.track.uri.as_str())
+                .collect::<Vec<_>>(),
+            ["new", "unavailable", "old"]
+        );
+        assert_eq!(
+            liked.tracks[0].added_at.as_deref(),
+            Some("2026-11-25T00:00:00Z")
+        );
+    }
 
     #[test]
     fn rootlist_keeps_names_aligned_when_folders_are_filtered() {

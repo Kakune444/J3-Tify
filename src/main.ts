@@ -131,9 +131,9 @@ const queueView = new QueueView(queue, {
   },
   error: showError,
 });
-let likedTokens = [""];
+
 let likedIndex = 0;
-let likedOffsets = [0];
+
 let selectedCollection: { card: Card; data: Collection } | null = null;
 let playlistPending = false;
 let drag: {
@@ -175,7 +175,7 @@ const playlists = new PlaylistDialogs({
 const likedCard: Card = {
   uri: "spotify:collection:tracks",
   name: "Titres likés",
-  subtitle: "Playlist",
+  subtitle: "Favoris",
   image: "",
   kind: "liked",
   durationMs: 0,
@@ -359,7 +359,7 @@ function renderLibrary(): void {
   )
     byId("library-list").insertAdjacentHTML(
       "afterbegin",
-      `<button class="library-item" id="liked-tracks">${cover(likedCard)}<span><strong>Titres likés</strong><small>Playlist</small></span></button>`,
+      `<button class="library-item" id="liked-tracks">${cover(likedCard)}<span><strong>Titres likés</strong><small>Favoris</small></span></button>`,
     );
 }
 
@@ -424,7 +424,6 @@ async function toggleSaved(uri: string): Promise<void> {
     await invoke("set_saved_track", { uri, saved: !current });
     savedTracks.finish(uri, operation, !current);
     if (activeView === "liked") {
-      likedTokens = [""];
       void openLiked();
     }
   } catch (err) {
@@ -676,43 +675,46 @@ function moveTrack(position: number, to: number, uri: string): void {
     uri,
   });
 }
+const addedDateFormat = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
+function formatAddedDate(value?: string | null): string {
+  const timestamp = value ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) ? addedDateFormat.format(timestamp) : "—";
+}
 function trackList(
-  tracks: NativeTrack[],
+  tracks: (NativeTrack & { addedAt?: string | null })[],
   offset: number,
   editable = false,
+  liked = false,
 ): string {
-  return `<div class="tracklist"><div class="tracklist-heading"><span>#</span><span>Titre</span><span>Album</span><span></span><span>${icon("clock")}</span><span></span></div>${tracks
+  return `<div class="tracklist"><div class="tracklist-heading"><span>#</span><span>Titre</span><span>${liked ? "Ajouté le" : "Album"}</span><span></span><span>${icon("clock")}</span><span></span></div>${tracks
     .map((track, index) => {
       const position = offset + index;
-      return `<div class="track-row" ${editable ? `draggable="true" tabindex="0" data-position="${position}" data-track="${esc(track.uri)}" title="Glissez pour déplacer · Alt + ↑ ou ↓"` : ""}><button class="row-play" data-play="${esc(track.uri)}" data-play-position="${position}"><span class="track-index">${position + 1}</span><span class="row-name">${cover({ image: track.image, name: track.name, kind: "track" })}<span><strong>${esc(track.name)}</strong><small>${esc(track.artist)}</small></span></span></button><span class="album-name">${esc(track.album)}</span>${savedButton(track.uri)}<span>${formatTime(track.durationMs)}</span>${menuButton(track.uri, editable ? position : undefined)}</div>`;
+      return `<div class="track-row" ${editable ? `draggable="true" tabindex="0" data-position="${position}" data-track="${esc(track.uri)}" title="Glissez pour déplacer · Alt + ↑ ou ↓"` : ""}><button class="row-play" data-play="${esc(track.uri)}" data-play-position="${position}"><span class="track-index">${position + 1}</span><span class="row-name">${cover({ image: track.image, name: track.name, kind: "track" })}<span><strong>${esc(track.name)}</strong><small>${esc(track.artist)}</small></span></span></button><span class="album-name">${liked ? formatAddedDate(track.addedAt) : esc(track.album)}</span>${savedButton(track.uri)}<span>${formatTime(track.durationMs)}</span>${menuButton(track.uri, editable ? position : undefined)}</div>`;
     })
     .join("")}</div>`;
 }
 
 async function openLiked(index = 0): Promise<void> {
-  const token = likedTokens[index];
-  if (token === undefined) return;
+  const offset = index * 40;
   const id = ++requestId;
   byId("main-content").innerHTML =
     '<div class="loading" role="status">Chargement des Titres likés…</div>';
   try {
     const result = await invoke<{
-      tracks: NativeTrack[];
-      nextToken: string | null;
-    }>("get_liked_tracks", { token });
+      tracks: (NativeTrack & { addedAt: string | null })[];
+      total: number;
+    }>("get_liked_tracks", { offset });
     if (id !== requestId) return;
     activeView = "liked";
     likedIndex = index;
-    if (result.nextToken) likedTokens[index + 1] = result.nextToken;
-    else likedTokens.length = index + 1;
-    likedOffsets[index + 1] = likedOffsets[index] + result.tracks.length;
+    if (offset >= result.total && index > 0) return void await openLiked(Math.max(0, Math.ceil(result.total / 40) - 1));
     result.tracks.forEach(rememberTrack);
     collectionTracks = result.tracks.map(nativeCard);
     cards.clear();
     remember(library);
     remember(collectionTracks);
     byId("main-content").innerHTML =
-      `<div class="collection-header liked-header">${cover(likedCard)}<div><p>Playlist</p><h1>Titres likés</h1></div></div>${result.tracks.length ? trackList(result.tracks, likedOffsets[index] ?? 0) : '<div class="empty"><p>Aucun titre sur cette page.</p></div>'}<div class="pagination"><button class="pill" id="liked-prev" ${index === 0 ? "disabled" : ""}>Précédent</button><span>Page ${index + 1}</span><button class="pill" id="liked-next" ${!result.nextToken ? "disabled" : ""}>Suivant</button></div>`;
+      `<div class="collection-header liked-header">${cover(likedCard)}<div><p>Votre bibliothèque</p><h1>Titres likés</h1><p>${result.total} titres</p></div></div>${result.tracks.length ? trackList(result.tracks, offset, false, true) : '<div class="empty"><p>Aucun titre sur cette page.</p></div>'}<div class="pagination"><button class="pill" id="liked-prev" ${index === 0 ? "disabled" : ""}>Précédent</button><span>Page ${index + 1}</span><button class="pill" id="liked-next" ${offset + result.tracks.length >= result.total || !result.tracks.length ? "disabled" : ""}>Suivant</button></div>`;
     updateSavedButtons();
     void refreshSaved();
     updateControls();
@@ -1215,8 +1217,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (id === "liked-tracks") {
-    likedTokens = [""];
-    likedOffsets = [0];
     void openLiked();
   }
   if (id === "liked-prev") void openLiked(Math.max(0, likedIndex - 1));

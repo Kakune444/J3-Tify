@@ -25,5 +25,14 @@
         "sha256Hash": "1148393611bbc58e84e47aed35ecc731275df9f9eb660956962e352dd3631d89"
       }
     }
+  },
+  "fetchLibraryTracks": {
+    "operationName": "fetchLibraryTracks",
+    "extensions": {
+      "persistedQuery": {
+        "version": 1,
+        "sha256Hash": "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240"
+      }
+    }
   }
 }
