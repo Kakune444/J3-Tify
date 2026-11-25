@@ -628,6 +628,59 @@ async fn search_catalog(state: State<'_, Arc<Backend>>, query: String) -> Result
 }
 
 #[tauri::command]
+async fn get_artist(state: State<'_, Arc<Backend>>, uri: String) -> Result<Value> {
+    if !matches!(SpotifyUri::from_uri(&uri), Ok(SpotifyUri::Artist { .. })) {
+        return Err(error("INPUT", "Artiste invalide."));
+    }
+    let data = state
+        .query("queryArtistOverview", json!({"uri":uri,"locale":null}))
+        .await?;
+    data.pointer("/data/artistUnion")
+        .filter(|artist| artist["__typename"] == "Artist" || artist["profile"].is_object())
+        .cloned()
+        .ok_or_else(|| error("NOT_FOUND", "Artiste indisponible."))
+}
+
+#[tauri::command]
+async fn browse_library(
+    state: State<'_, Arc<Backend>>,
+    filter: String,
+    folder: Option<String>,
+    offset: usize,
+) -> Result<Value> {
+    let filters = match filter.as_str() {
+        "all" => vec![],
+        "playlist" => vec!["Playlists"],
+        "album" => vec!["Albums"],
+        "artist" => vec!["Artists"],
+        _ => return Err(error("INPUT", "Filtre inconnu.")),
+    };
+    if offset > 100_000
+        || folder
+            .as_deref()
+            .is_some_and(|f| !f.starts_with("spotify:folder:") || f.len() > 200)
+    {
+        return Err(error("INPUT", "Page invalide."));
+    }
+    let response = state.query("libraryV3",json!({"filters":filters,"order":null,"textFilter":null,"features":[],"limit":40,"offset":offset,"flatten":false,"folderUri":folder,"includeFoldersWhenFlattening":true})).await?;
+    let page = response
+        .pointer("/data/me/libraryV3")
+        .ok_or_else(|| error("QUERY", "Bibliothèque indisponible."))?;
+    let entries = page["items"]
+        .as_array()
+        .ok_or_else(|| error("QUERY", "Bibliothèque indisponible."))?;
+    let items: Vec<_> = entries
+        .iter()
+        .filter_map(|row| row.pointer("/item/data"))
+        .collect();
+    let next = offset + entries.len();
+    let total = page["totalCount"].as_u64().unwrap_or(0) as usize;
+    Ok(
+        json!({"items":items,"nextOffset":if !entries.is_empty() && next < total {Some(next)} else {None}}),
+    )
+}
+
+#[tauri::command]
 async fn get_library(state: State<'_, Arc<Backend>>, offset: Option<usize>) -> Result<Value> {
     let session = state.session().await?;
     let offset = offset.unwrap_or(0);
@@ -1366,6 +1419,8 @@ pub fn run() {
             get_home,
             search_catalog,
             get_library,
+            browse_library,
+            get_artist,
             get_saved_status,
             set_saved_track,
             get_liked_tracks,

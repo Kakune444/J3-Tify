@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   collectCards,
+  toCard,
   escapeHtml as esc,
   formatTime,
   homeSections,
@@ -79,6 +80,8 @@ let library: Card[] = [];
 let libraryNext: number | null = null;
 let libraryFilter = "all";
 let libraryLoading = false;
+let libraryRequest = 0;
+let libraryFolder: string | null = null;
 const queue = new PlaybackQueue<Card>();
 let connectState = emptyConnectState();
 let connectPending = false;
@@ -348,13 +351,14 @@ function renderLibrary(): void {
         )
         .join("")
     : `<div class="library-empty"><strong>${status.connected ? "Aucun élément affiché" : "Votre bibliothèque vous attend"}</strong><p>${status.connected ? "Aucun élément disponible pour ce filtre." : "Connectez-vous pour retrouver votre musique."}</p></div>`;
+  if (libraryFolder) byId("library-list").insertAdjacentHTML("afterbegin", '<button class="pill" id="library-root">Retour à la bibliothèque</button>');
   if (libraryNext !== null)
     byId("library-list").insertAdjacentHTML(
       "beforeend",
       `<button class="pill" id="library-more" ${libraryLoading ? "disabled" : ""}>Afficher plus</button>`,
     );
   if (
-    status.connected &&
+    status.connected && !libraryFolder &&
     (libraryFilter === "all" || libraryFilter === "playlist")
   )
     byId("library-list").insertAdjacentHTML(
@@ -508,15 +512,19 @@ async function search(query: string): Promise<void> {
 
 async function loadLibrary(offset = 0): Promise<void> {
   const epoch = connectEpoch;
-  if (libraryLoading) return;
+  if (libraryLoading && offset) return;
+  const request = ++libraryRequest;
   libraryLoading = true;
   try {
-    const result = await invoke<{
-      items: unknown[];
-      nextOffset: number | null;
-    }>("get_library", { offset });
-    if (epoch !== connectEpoch || !status.connected) return;
-    const incoming = collectCards(result.items, 40);
+    type LibraryPage = { items: unknown[]; nextOffset: number | null };
+    let result: LibraryPage;
+    try { result = await invoke("browse_library", {offset, folder: libraryFolder, filter: libraryFilter}); }
+    catch (error) {
+      if (libraryFolder || (libraryFilter !== "all" && libraryFilter !== "playlist") || (error as AppError)?.code !== "API_CHANGED") throw error;
+      result = await invoke("get_library", {offset});
+    }
+    if (request !== libraryRequest || epoch !== connectEpoch || !status.connected) return;
+    const incoming = result.items.flatMap(item => {const card = toCard(item); return card ? [card] : [];});
     library = [
       ...new Map(
         [...(offset ? library : []), ...incoming].map((card) => [
@@ -531,8 +539,7 @@ async function loadLibrary(offset = 0): Promise<void> {
   } catch (err) {
     if ((err as AppError)?.code !== "AUTH_REQUIRED") showError(err);
   } finally {
-    libraryLoading = false;
-    renderLibrary();
+    if (request === libraryRequest) { libraryLoading = false; renderLibrary(); }
   }
 }
 
@@ -725,6 +732,24 @@ async function openLiked(index = 0): Promise<void> {
     showError(err);
   }
 }
+async function openArtist(card: Card): Promise<void> {
+  const id = ++requestId;
+  byId("main-content").innerHTML = '<div class="loading" role="status">Chargement de l’artiste…</div>';
+  try {
+    const artist = await invoke<{ discography?: { topTracks?: unknown; albums?: unknown; singles?: unknown; compilations?: unknown } }>("get_artist", {uri: card.uri});
+    if (id !== requestId) return;
+    activeView = "artist";
+    const disc = artist.discography ?? {};
+    const groups = [
+      {name:"Titres populaires", items:collectCards(disc.topTracks, 10).filter(c => c.kind === "track")},
+      {name:"Albums", items:collectCards(disc.albums, 80).filter(c => c.kind === "album")},
+      {name:"Singles et EP", items:collectCards(disc.singles, 80).filter(c => c.kind === "album")},
+      {name:"Compilations", items:collectCards(disc.compilations, 40).filter(c => c.kind === "album")},
+    ];
+    renderSections(groups.filter(g => g.items.length), card.name);
+  } catch (error) { if (id === requestId) { byId("main-content").textContent = "Artiste indisponible."; showError(error); } }
+}
+
 async function openCollection(card: Card, offset = 0): Promise<void> {
   const id = ++requestId;
   byId("main-content").innerHTML =
@@ -1228,7 +1253,9 @@ document.addEventListener("click", async (event) => {
     if (card) {
       if (card.kind === "track") {
         void startTrack(card.uri);
-      } else if (card.kind === "album" || card.kind === "playlist")
+      } else if (card.kind === "artist") void openArtist(card);
+      else if (card.kind === "folder") { libraryFolder = card.uri; library = []; libraryNext = null; renderLibrary(); void loadLibrary(); }
+      else if (card.kind === "album" || card.kind === "playlist")
         void openCollection(card);
       else
         showError({
@@ -1249,11 +1276,13 @@ document.addEventListener("click", async (event) => {
   }
   if (button.dataset.queueCurrent) togglePlayback();
   if (id === "queue-more") queueView.more();
+  if (id === "library-root") { libraryFolder = null; void loadLibrary(); }
   if (button.dataset.library) {
     document
       .querySelectorAll(".library-filters .chip")
       .forEach((item) => item.classList.toggle("active", item === button));
     libraryFilter = button.dataset.library;
+    libraryFolder = null; library = []; libraryNext = null; void loadLibrary();
     renderLibrary();
   }
   if (id === "library-more" && libraryNext !== null)

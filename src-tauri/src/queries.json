@@ -34,5 +34,23 @@
         "sha256Hash": "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240"
       }
     }
+  },
+  "queryArtistOverview": {
+    "operationName": "queryArtistOverview",
+    "extensions": {
+      "persistedQuery": {
+        "version": 1,
+        "sha256Hash": "1ac33ddab5d39a3a9c27802774e6d78b9405cc188c6f75aed007df2a32737c72"
+      }
+    }
+  },
+  "libraryV3": {
+    "operationName": "libraryV3",
+    "extensions": {
+      "persistedQuery": {
+        "version": 1,
+        "sha256Hash": "390c78e5b951029bad359785e69b07b536a509c581cbcd0aded5e5067f187455"
+      }
+    }
   }
 }

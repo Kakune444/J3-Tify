@@ -67,7 +67,7 @@ export function toCard(value: unknown): Card | null {
   const uri = string(data.uri);
   const kind = uri.split(":")[1];
   if (
-    !/^spotify:(track|episode|album|playlist|artist|show):[A-Za-z0-9]+$/.test(
+    !/^spotify:(track|episode|album|playlist|artist|show|folder):[A-Za-z0-9_-]+$/.test(
       uri,
     )
   )
@@ -79,6 +79,7 @@ export function toCard(value: unknown): Card | null {
     findNames(data.artists).join(", ") ||
     text(object(data.ownerV2).data && object(object(data.ownerV2).data).name);
   const labels: Record<string, string> = {
+    folder: "Dossier",
     album: "Album",
     playlist: "Playlist",
     artist: "Artiste",
