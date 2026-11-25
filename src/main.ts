@@ -53,6 +53,8 @@ type Playback = {
   ended: boolean;
 };
 type Collection = {
+  owner: boolean;
+  image: string | null;
   name: string;
   description: string;
   revision: string | null;
@@ -148,6 +150,12 @@ const playlists = new PlaylistDialogs({
       void openCollection(card, collectionOffset);
     }
   },
+  removed: (uri) => {
+    library = library.filter(card => card.uri !== uri);
+    renderLibrary();
+    void loadLibrary();
+    if (selectedCollection?.card.uri === uri) void loadHome();
+  },
   created: (card) => {
     void loadLibrary();
     void openCollection(card);
@@ -157,7 +165,7 @@ const playlists = new PlaylistDialogs({
     playlistPending = value;
     document
       .querySelectorAll<HTMLButtonElement>(
-        "[data-menu], #edit-playlist, #create-playlist",
+        "[data-menu], #edit-playlist, #playlist-settings, #create-playlist",
       )
       .forEach((button) => {
         button.disabled = value || !status.nativeReady;
@@ -733,7 +741,7 @@ async function openCollection(card: Card, offset = 0): Promise<void> {
       return;
     }
     activeView = "collection";
-    card = { ...card, name: result.name };
+    card = { ...card, name: result.name, image: result.image ?? card.image };
     selectedCollection = { card, data: result };
     collectionUri = card.uri;
     collectionOffset = result.offset;
@@ -745,7 +753,7 @@ async function openCollection(card: Card, offset = 0): Promise<void> {
     remember([card, ...collectionTracks]);
     byId("main-content").innerHTML =
       `<div class="collection-header">${cover(card)}<div><p>${esc(card.kind === "album" ? "Album" : "Playlist")}</p><h1>${esc(result.name)}</h1>${result.description ? `<p class="playlist-description">${esc(result.description)}</p>` : ""}<p>${result.total} titres</p></div></div>
-      ${result.canEditMetadata ? '<div class="collection-actions"><button class="pill" id="edit-playlist">Modifier les informations</button></div>' : ""}
+      ${card.kind === "playlist" && (result.canEditMetadata || result.owner || library.some(c => c.uri === card.uri)) ? `<div class="collection-actions">${result.canEditMetadata ? '<button class="pill" id="edit-playlist">Modifier les informations</button>' : ""}<button class="pill" id="playlist-settings" aria-label="Options de la playlist">…</button></div>` : ""}
       ${trackList(result.tracks, offset, result.canEditItems)}
       <div class="pagination"><button class="pill" id="collection-prev" ${offset === 0 ? "disabled" : ""}>Précédent</button><span>${result.total ? offset + 1 : 0}–${Math.min(offset + 40, result.total)} sur ${result.total}</span><button class="pill" id="collection-next" ${offset + 40 >= result.total ? "disabled" : ""}>Suivant</button></div>`;
     updateControls();
@@ -1125,6 +1133,11 @@ document.addEventListener("click", async (event) => {
   }
   if (button.dataset.menu) {
     openTrackMenu(button);
+    return;
+  }
+  if (id === "playlist-settings" && selectedCollection?.data.revision) {
+    const {card, data} = selectedCollection;
+    void playlists.settings(card, data.revision!, data.owner, data.canEditMetadata, library.some(c => c.uri === card.uri));
     return;
   }
   if (id === "create-playlist") {

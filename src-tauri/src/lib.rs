@@ -174,6 +174,8 @@ struct Collection {
     description: String,
     revision: Option<String>,
     can_edit_metadata: bool,
+    owner: bool,
+    image: Option<String>,
     can_edit_items: bool,
     tracks: Vec<CollectionTrack>,
     total: usize,
@@ -831,6 +833,48 @@ async fn edit_playlist(
     Ok(())
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum PlaylistSetting {
+    Visibility { public: bool },
+    Cover { revision: String, jpeg: Vec<u8> },
+    Unlink,
+}
+
+#[tauri::command]
+async fn get_playlist_visibility(state: State<'_, Arc<Backend>>, uri: String) -> Result<bool> {
+    let _slot = state.requests.acquire().await.map_err(network_error)?;
+    state.check_library_cooldown().await?;
+    let session = state.session().await?;
+    state
+        .library_result(
+            LibraryApi::new(&session, &state.client)
+                .visibility(&uri)
+                .await,
+        )
+        .await
+}
+
+#[tauri::command]
+async fn set_playlist_setting(
+    state: State<'_, Arc<Backend>>,
+    uri: String,
+    setting: PlaylistSetting,
+) -> Result<()> {
+    let _write = state.writes.lock().await;
+    let _slot = state.requests.acquire().await.map_err(network_error)?;
+    state.check_library_cooldown().await?;
+    let session = state.session().await?;
+    let api = LibraryApi::new(&session, &state.client);
+    let result = match setting {
+        PlaylistSetting::Visibility { public } => api.set_visibility(&uri, public).await,
+        PlaylistSetting::Cover { revision, jpeg } => api.set_cover(&uri, &revision, jpeg).await,
+        PlaylistSetting::Unlink => api.unlink_playlist(&uri).await,
+    };
+    state.cache.lock().await.clear();
+    state.library_result(result).await
+}
+
 #[tauri::command]
 async fn create_playlist(
     state: State<'_, Arc<Backend>>,
@@ -863,6 +907,8 @@ async fn open_collection(
     if offset > 100_000 {
         return Err(error("INPUT", "Page de playlist invalide."));
     }
+    let mut owner = false;
+    let mut image = None;
     let (name, description, revision, can_edit_metadata, can_edit_items, total, uris) = match id {
         SpotifyUri::Album { .. } => {
             let item = tokio::time::timeout(Duration::from_secs(15), Album::get(&session, &id))
@@ -893,6 +939,13 @@ async fn open_collection(
                 .await?;
             let (metadata, items) = playlist_permissions(&item, &session.username());
             let attributes = item.attributes.get_or_default();
+            owner = item.owner_username() == session.username();
+            image = attributes
+                .picture_size
+                .iter()
+                .map(|p| p.url())
+                .find(|url| url.starts_with("https://"))
+                .map(str::to_owned);
             let uris = item
                 .contents
                 .as_ref()
@@ -926,6 +979,8 @@ async fn open_collection(
         })
         .collect();
     Ok(Collection {
+        owner,
+        image,
         name,
         description,
         revision,
@@ -1249,6 +1304,8 @@ pub fn run() {
             get_writable_playlists,
             edit_playlist,
             create_playlist,
+            set_playlist_setting,
+            get_playlist_visibility,
             open_collection,
             get_context_page,
             get_track_details,

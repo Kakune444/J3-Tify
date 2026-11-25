@@ -36,6 +36,9 @@ pub enum PlaylistEdit {
         name: String,
         description: String,
     },
+    Cover {
+        picture: Vec<u8>,
+    },
     Add {
         uris: Vec<String>,
     },
@@ -310,7 +313,7 @@ impl<'a> LibraryApi<'a> {
         let before = self.playlist_page(uri, position, 1).await?;
         let (metadata, items) = playlist_permissions(&before, &self.session.username());
         if !match edit {
-            PlaylistEdit::Details { .. } => metadata,
+            PlaylistEdit::Details { .. } | PlaylistEdit::Cover { .. } => metadata,
             _ => items,
         } {
             return Err(LibraryError::Permission);
@@ -351,6 +354,9 @@ impl<'a> LibraryApi<'a> {
             .await
             .map_err(|_| LibraryError::Uncertain)?;
         let verified = match edit {
+            PlaylistEdit::Cover { picture } => {
+                after.attributes.get_or_default().picture() == picture.as_slice()
+            }
             PlaylistEdit::Details { name, description } => after
                 .attributes
                 .as_ref()
@@ -422,7 +428,7 @@ impl<'a> LibraryApi<'a> {
             p::CreateListReply::parse_from_bytes(&bytes).map_err(|_| LibraryError::Uncertain)?;
         let uri = format!("spotify:playlist:{}", playlist_id(created.uri())?);
         // New playlists are private. Neither profile publication nor collaborator permissions are inherited.
-        self.make_private(&uri)
+        self.set_visibility(&uri, false)
             .await
             .map_err(|_| LibraryError::Uncertain)?;
         self.link_playlist(&uri)
@@ -431,17 +437,41 @@ impl<'a> LibraryApi<'a> {
         Ok(uri)
     }
 
-    async fn make_private(&self, uri: &str) -> Result<()> {
+    async fn base_permission(&self, uri: &str) -> Result<serde_json::Value> {
         let path = format!(
             "/playlist-permission/v1/playlist/{}/permission/base",
             playlist_id(uri)?
         );
-        let response = self
+        let bytes = self
             .request(Method::GET, &path, "application/json", vec![], false)
             .await?;
-        let mut permission: serde_json::Value =
-            serde_json::from_slice(&response).map_err(|_| LibraryError::Protocol)?;
-        permission["permissionLevel"] = serde_json::json!("BLOCKED");
+        serde_json::from_slice(&bytes).map_err(|_| LibraryError::Protocol)
+    }
+
+    pub async fn visibility(&self, uri: &str) -> Result<bool> {
+        let permission = self.base_permission(uri).await?;
+        let level = &permission["permissionLevel"];
+        if level == "BLOCKED" || level == 1 {
+            Ok(false)
+        } else if level == "VIEWER" || level == 2 {
+            Ok(true)
+        } else {
+            Err(LibraryError::Protocol)
+        }
+    }
+
+    pub async fn set_visibility(&self, uri: &str, public: bool) -> Result<()> {
+        let item = self.playlist_page(uri, 0, 1).await?;
+        if item.owner_username() != self.session.username() {
+            return Err(LibraryError::Permission);
+        }
+        let path = format!(
+            "/playlist-permission/v1/playlist/{}/permission/base",
+            playlist_id(uri)?
+        );
+        let mut permission = self.base_permission(uri).await?;
+        permission["permissionLevel"] =
+            serde_json::json!(if public { "VIEWER" } else { "BLOCKED" });
         self.request(
             Method::POST,
             &path,
@@ -450,16 +480,72 @@ impl<'a> LibraryApi<'a> {
             true,
         )
         .await?;
-        let response = self
-            .request(Method::GET, &path, "application/json", vec![], false)
-            .await?;
-        let confirmed: serde_json::Value =
-            serde_json::from_slice(&response).map_err(|_| LibraryError::Protocol)?;
-        if confirmed["permissionLevel"] == "BLOCKED" || confirmed["permissionLevel"] == 1 {
+        if self
+            .visibility(uri)
+            .await
+            .map_err(|_| LibraryError::Uncertain)?
+            == public
+        {
             Ok(())
         } else {
             Err(LibraryError::Uncertain)
         }
+    }
+
+    pub async fn set_cover(&self, uri: &str, revision: &str, jpeg: Vec<u8>) -> Result<()> {
+        if !jpeg.starts_with(&[0xff, 0xd8, 0xff])
+            || !jpeg.ends_with(&[0xff, 0xd9])
+            || jpeg.len() > 2_000_000
+        {
+            return Err(LibraryError::Input);
+        }
+        let before = self.playlist_page(uri, 0, 1).await?;
+        if !playlist_permissions(&before, &self.session.username()).0 {
+            return Err(LibraryError::Permission);
+        }
+        if revision_bytes(revision)? != before.revision() {
+            return Err(LibraryError::Conflict);
+        }
+        let upload = self
+            .client
+            .post("https://image-upload.spotify.com/v4/playlist")
+            .header("Content-Type", "image/jpeg")
+            .body(jpeg)
+            .send()
+            .await
+            .map_err(|_| LibraryError::Network)?
+            .error_for_status()
+            .map_err(|_| LibraryError::Network)?
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|_| LibraryError::Protocol)?;
+        let token = upload["uploadToken"]
+            .as_str()
+            .filter(|s| !s.is_empty() && s.len() <= 4096)
+            .ok_or(LibraryError::Protocol)?;
+        let mut register = p::RegisterPlaylistImageRequest::new();
+        register.set_upload_token(token.to_owned());
+        let response = self
+            .request(
+                Method::POST,
+                &format!("/playlist/v2/playlist/{}/register-image", playlist_id(uri)?),
+                "application/x-protobuf",
+                register
+                    .write_to_bytes()
+                    .map_err(|_| LibraryError::Protocol)?,
+                true,
+            )
+            .await?;
+        let image = p::RegisterPlaylistImageResponse::parse_from_bytes(&response)
+            .map_err(|_| LibraryError::Protocol)?;
+        self.edit_playlist(
+            uri,
+            Some(revision),
+            &PlaylistEdit::Cover {
+                picture: image.picture().to_vec(),
+            },
+        )
+        .await
     }
 
     fn root_path(&self) -> Result<String> {
@@ -519,27 +605,42 @@ impl<'a> LibraryApi<'a> {
         Ok(())
     }
 
-    /// Used by the developer smoke test to remove only the playlist it just created.
     pub async fn unlink_playlist(&self, uri: &str) -> Result<()> {
         let id = playlist_id(uri)?;
         let path = self.root_path()?;
-        let bytes = self
-            .request(
-                Method::GET,
-                &format!("{path}?decorate=revision&from=0&length=1000"),
-                "application/x-protobuf",
-                vec![],
-                false,
-            )
-            .await?;
-        let root =
-            p::SelectedListContent::parse_from_bytes(&bytes).map_err(|_| LibraryError::Protocol)?;
-        let Some(position) = root.contents.as_ref().and_then(|c| {
-            c.items
+        let mut offset = 0;
+        let mut revision = None;
+        let (root, position) = loop {
+            let bytes = self
+                .request(
+                    Method::GET,
+                    &format!("{path}?decorate=revision&from={offset}&length=1000"),
+                    "application/x-protobuf",
+                    vec![],
+                    false,
+                )
+                .await?;
+            let root = p::SelectedListContent::parse_from_bytes(&bytes)
+                .map_err(|_| LibraryError::Protocol)?;
+            if revision
+                .as_deref()
+                .is_some_and(|r: &[u8]| r != root.revision())
+            {
+                return Err(LibraryError::Conflict);
+            }
+            let contents = root.contents.get_or_default();
+            if let Some(index) = contents
+                .items
                 .iter()
                 .position(|item| playlist_id(item.uri()).ok().as_ref() == Some(&id))
-        }) else {
-            return Err(LibraryError::Missing);
+            {
+                break (root, offset + index);
+            }
+            offset += contents.items.len();
+            if contents.items.is_empty() || offset >= root.length().max(0) as usize {
+                return Err(LibraryError::Missing);
+            }
+            revision = Some(root.revision().to_vec());
         };
         let mut rem = p::Rem::new();
         rem.set_from_index(position as i32);
@@ -643,6 +744,19 @@ fn playlist_operation(edit: &PlaylistEdit, before: &p::SelectedListContent) -> R
             let mut values = p::ListAttributes::new();
             values.set_name(name.trim().into());
             values.set_description(description.clone());
+            let mut partial = p::ListAttributesPartialState::new();
+            partial.values = Some(values).into();
+            let mut update = p::UpdateListAttributes::new();
+            update.new_attributes = Some(partial).into();
+            op.set_kind(p::op::Kind::UPDATE_LIST_ATTRIBUTES);
+            op.update_list_attributes = Some(update).into();
+        }
+        PlaylistEdit::Cover { picture } => {
+            if picture.is_empty() || picture.len() > 256 {
+                return Err(LibraryError::Input);
+            }
+            let mut values = p::ListAttributes::new();
+            values.set_picture(picture.clone());
             let mut partial = p::ListAttributesPartialState::new();
             partial.values = Some(values).into();
             let mut update = p::UpdateListAttributes::new();

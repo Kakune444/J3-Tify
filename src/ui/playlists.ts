@@ -16,6 +16,7 @@ export type EditablePlaylist = {
 type Hooks = {
   changed: (uri: string) => void;
   created: (card: Card) => void;
+  removed: (uri: string) => void;
   error: (error: unknown) => void;
   pending: (value: boolean) => void;
 };
@@ -155,6 +156,66 @@ export class PlaylistDialogs {
         this.setBusy(false);
       }
     });
+  }
+
+  async settings(card: Card, revision: string, owner: boolean, editable: boolean, inLibrary: boolean): Promise<void> {
+    if (this.busy) return;
+    const dialog = this.open(card.name, `
+      <div class="playlist-form">
+        ${owner ? '<button class="pill" data-visibility disabled>Chargement de la visibilité…</button>' : ""}
+        ${editable ? '<label>Changer la pochette<input type="file" accept="image/jpeg" aria-label="Image JPEG"/></label><button class="pill" data-cover disabled>Enregistrer la pochette</button>' : ""}
+        ${inLibrary ? '<button class="pill" data-unlink>Retirer de la bibliothèque…</button>' : ""}
+      </div>`);
+    const visibility = dialog.querySelector<HTMLButtonElement>("[data-visibility]");
+    const cover = dialog.querySelector<HTMLButtonElement>("[data-cover]");
+    const file = dialog.querySelector<HTMLInputElement>('input[type="file"]');
+    const unlink = dialog.querySelector<HTMLButtonElement>("[data-unlink]");
+    let isPublic: boolean | undefined;
+    let confirming = false;
+    const update = () => {
+      if (visibility) visibility.disabled = this.busy || isPublic === undefined;
+      if (cover) cover.disabled = this.busy || !file?.files?.length;
+    };
+    const apply = async (setting: Record<string, unknown>) => {
+      if (this.busy || !dialog.open) return;
+      this.setBusy(true);
+      try {
+        await invoke("set_playlist_setting", { uri: card.uri, setting });
+        dialog.close();
+        if (setting.kind === "unlink") this.hooks.removed(card.uri);
+        else this.hooks.changed(card.uri);
+      } catch (error) {
+        this.error(dialog, error);
+        const code = (error as { code?: string }).code;
+        if (code === "CONFLICT" || code === "UNCERTAIN") this.hooks.changed(card.uri);
+      } finally {
+        this.setBusy(false);
+        update();
+      }
+    };
+    file?.addEventListener("change", update);
+    cover?.addEventListener("click", async () => {
+      const image = file?.files?.[0];
+      if (!image) return;
+      try {
+        if (image.size > 2_000_000) throw new Error("Choisissez une image JPEG de moins de 2 Mo.");
+        const bytes = new Uint8Array(await image.arrayBuffer());
+        if (bytes[0] !== 255 || bytes[1] !== 216 || bytes[2] !== 255) throw new Error("Choisissez une image JPEG.");
+        await apply({ kind: "cover", revision, jpeg: Array.from(bytes) });
+      } catch (error) { this.error(dialog, error); }
+    });
+    unlink?.addEventListener("click", () => {
+      if (confirming) void apply({ kind: "unlink" });
+      else { confirming = true; unlink.textContent = "Confirmer le retrait de la bibliothèque"; }
+    });
+    if (visibility) {
+      try {
+        isPublic = await invoke<boolean>("get_playlist_visibility", { uri: card.uri });
+        visibility.textContent = isPublic ? "Rendre privée" : "Rendre publique";
+        visibility.addEventListener("click", () => void apply({ kind: "visibility", public: !isPublic }));
+      } catch (error) { visibility.textContent = "Visibilité indisponible"; this.error(dialog, error); }
+      update();
+    }
   }
 
   async add(trackUri: string): Promise<void> {
