@@ -26,6 +26,8 @@ mod jam;
 mod library_api;
 mod lyrics;
 mod profiles;
+#[cfg(windows)]
+mod windows_media;
 use audio::{AudioPreferences, AudioQuality};
 use connect::{ConnectAction, ConnectError, ConnectRuntime, ConnectView};
 use jam::{JamClient, JamSession};
@@ -571,6 +573,10 @@ async fn connect_spotify(
             }
             drop(current);
             let snapshot = updates.borrow_and_update().clone();
+            #[cfg(windows)]
+            if let Some(media) = app.try_state::<windows_media::WindowsMedia>() {
+                let _ = media.update(&snapshot);
+            }
             let _ = app.emit("connect-state", snapshot);
             if updates.changed().await.is_err() {
                 break;
@@ -581,7 +587,11 @@ async fn connect_spotify(
 }
 
 #[tauri::command]
-async fn disconnect_spotify(state: State<'_, Arc<Backend>>) -> Result<()> {
+async fn disconnect_spotify(app: tauri::AppHandle, state: State<'_, Arc<Backend>>) -> Result<()> {
+    #[cfg(windows)]
+    if let Some(media) = app.try_state::<windows_media::WindowsMedia>() {
+        media.clear();
+    }
     let _connection = state.connection.lock().await;
     if let Some(native) = state.native.lock().await.take() {
         native.connect.shutdown();
@@ -1400,6 +1410,15 @@ async fn connect_command(
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            #[cfg(windows)]
+            if let Some(hwnd) = app.get_webview_window("main").and_then(|w| w.hwnd().ok()) {
+                if let Ok(media) = windows_media::WindowsMedia::new(
+                    windows::Win32::Foundation::HWND(hwnd.0),
+                    app.handle().clone(),
+                ) {
+                    app.manage(media);
+                }
+            }
             if std::env::var("J3_TIFY_BENCHMARK_MAXIMIZE").as_deref() == Ok("1") {
                 if let Some(window) = app.get_webview_window("main") {
                     window.maximize()?;

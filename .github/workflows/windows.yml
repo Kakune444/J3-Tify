@@ -30,13 +30,19 @@ jobs:
       - run: npm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Compile Windows desktop client
-        run: npm run tauri build -- --ci --no-bundle
+        run: npm run tauri build -- --ci --bundles nsis
       - name: Verify native library pagination
         run: cargo test --release --locked --lib --manifest-path src-tauri/Cargo.toml
       - uses: actions/upload-artifact@v4
         with:
           name: j3-tify-windows-prototype
           path: src-tauri/target/release/j3-tify-desktop.exe
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: j3-tify-windows-installer
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
           retention-days: 7
   probe:
     runs-on: windows-latest

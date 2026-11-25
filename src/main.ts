@@ -1516,6 +1516,12 @@ async function boot(): Promise<void> {
   welcome();
   renderLibrary();
   if (!isTauri()) return;
+  await listen<string>("windows-media-button", ({payload}) => {
+    if (!connectState.ready || connectState.activeDeviceId !== connectState.localDeviceId || !playback.track) return;
+    if (payload === "next") step(1);
+    else if (payload === "previous") step(-1);
+    else if (payload === "play" || payload === "pause") void command(payload);
+  });
   await listen<ConnectState>("connect-state", (event) => {
     if (status.nativeReady && event.payload.available)
       applyConnect(event.payload);
