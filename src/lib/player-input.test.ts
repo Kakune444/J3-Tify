@@ -4,6 +4,27 @@ import { PlayerInputs, type PlayerInput } from "./player-input.ts";
 
 const settle = () => new Promise<void>(resolve => setImmediate(resolve));
 
+test("the next slider sample can reach the local mixer after 16 ms", async t => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  for (const local of [true, false]) {
+    const values: number[] = [];
+    const player = new PlayerInputs(async input => {
+      if (input.kind === "volume") values.push(input.value);
+    }, error => assert.fail(String(error)), () => local);
+    player.push({ kind: "volume", value: 50 });
+    await settle();
+    now += 16;
+    player.push({ kind: "volume", value: 30 });
+    assert.deepEqual(values, local ? [50, 30] : [50]);
+    now += 84;
+    player.push({ kind: "volume", value: 20 });
+    await settle();
+    assert.equal(values.at(-1), 20);
+    player.reset();
+  }
+});
+
 test("volume starts on input and skips survive a slow acknowledgement", async () => {
   const writes: PlayerInput[] = [];
   let finish!: () => void;

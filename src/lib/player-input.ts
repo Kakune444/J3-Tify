@@ -11,10 +11,12 @@ export class PlayerInputs {
   private generation = 0;
   private send: (input: PlayerInput) => Promise<void>;
   private failed: (error: unknown) => void;
+  private local: () => boolean;
 
-  constructor(send: (input: PlayerInput) => Promise<void>, failed: (error: unknown) => void) {
+  constructor(send: (input: PlayerInput) => Promise<void>, failed: (error: unknown) => void, local = () => false) {
     this.send = send;
     this.failed = failed;
+    this.local = local;
   }
 
   push(input: PlayerInput): void {
@@ -43,7 +45,7 @@ export class PlayerInputs {
     this.queue.shift();
     this.busy = true;
     const generation = this.generation;
-    if (input.kind === "volume") this.nextVolumeAt = performance.now() + 100;
+    if (input.kind === "volume") this.nextVolumeAt = performance.now() + (this.local() ? 16 : 100);
     try {
       await this.send(input);
     } catch (error) {

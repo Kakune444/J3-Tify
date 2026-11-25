@@ -84,11 +84,20 @@ let connectEpoch = 0;
 const playerInputs = new PlayerInputs(
   action => invoke("connect_command", { action, deviceId: commandDevice(connectState) }),
   showError,
+  () => !!connectState.activeDeviceId && connectState.activeDeviceId === connectState.localDeviceId,
 );
 const connectQueueKeys = new Map<number, string>();
 const connectQueued = new Set<number>();
 const connectMetadata = new Map<string, NativeTrack>();
+function rememberTrack(track: NativeTrack): void {
+  if (!track.name) return;
+  connectMetadata.delete(track.uri);
+  if (connectMetadata.size >= 200) connectMetadata.delete(connectMetadata.keys().next().value!);
+  connectMetadata.set(track.uri, track);
+}
 const metadataPending = new Set<string>();
+let nextDetailsTimer: ReturnType<typeof setTimeout>;
+let warmingDetails = false;
 let queueDragSnapshot: {
   key: string;
   revision: string;
@@ -689,6 +698,7 @@ async function openLiked(index = 0): Promise<void> {
     if (result.nextToken) likedTokens[index + 1] = result.nextToken;
     else likedTokens.length = index + 1;
     likedOffsets[index + 1] = likedOffsets[index] + result.tracks.length;
+    result.tracks.forEach(rememberTrack);
     collectionTracks = result.tracks.map(nativeCard);
     cards.clear();
     remember(library);
@@ -728,6 +738,7 @@ async function openCollection(card: Card, offset = 0): Promise<void> {
     collectionUri = card.uri;
     collectionOffset = result.offset;
     collectionTotal = result.total;
+    result.tracks.forEach(rememberTrack);
     collectionTracks = result.tracks.map(nativeCard);
     cards.clear();
     remember(library);
@@ -841,7 +852,14 @@ function applyConnect(next: ConnectState): void {
   connectState = next;
   audioSettings.update(next);
   const cached = next.track ? connectMetadata.get(next.track.uri) : undefined;
-  const track = next.track ? { ...next.track, ...(cached ?? {}) } : null;
+  const track = next.track ? { ...next.track } : null;
+  if (track && cached) {
+    if (track.name === "Chargement du titre…") track.name = cached.name;
+    track.artist ||= cached.artist;
+    track.album ||= cached.album;
+    track.image ||= cached.image;
+    track.durationMs ||= cached.durationMs;
+  }
   const needsDetails = track?.name === "Chargement du titre…";
   if (track && needsDetails) {
     const card = cards.get(track.uri) ?? queue.upcoming.find(e => e.track.uri === track.uri)?.track;
@@ -920,33 +938,40 @@ function applyConnect(next: ConnectState): void {
     ? "Lecture sur " + active.name
     : "";
   document.body.classList.toggle("remote-playback", remote);
-  if (
-    track && needsDetails &&
-    !metadataPending.has(track.uri)
-  ) {
+  if (track && needsDetails) void loadTrackDetails(track.uri);
+  if (changed) {
+    clearTimeout(nextDetailsTimer);
+    const upcoming = next.queue[0];
     const epoch = connectEpoch;
-    const uri = track.uri;
-    metadataPending.add(uri);
-    void invoke<NativeTrack[]>("get_track_details", { uris: [uri] })
-      .then((tracks) => {
-        if (epoch !== connectEpoch) return;
-        const detail = tracks[0];
-        if (!detail) return;
-        if (connectMetadata.size >= 200) connectMetadata.clear();
-        connectMetadata.set(uri, detail);
-        if (playback.track?.uri === uri) {
-          playback.track = detail;
-          queue.updateTrack(uri, nativeCard(detail));
-          renderPlayback();
-          queueView.render();
-        }
-      })
-      .catch((err) => {
-        if (epoch === connectEpoch) showError(err);
-      })
-      .finally(() => {
-        if (epoch === connectEpoch) metadataPending.delete(uri);
-      });
+    if (upcoming?.name === "Chargement du titre…" && /^spotify:track:[A-Za-z0-9]{22}$/.test(upcoming.uri) && !connectMetadata.has(upcoming.uri)) {
+      nextDetailsTimer = setTimeout(async () => {
+        if (warmingDetails || epoch !== connectEpoch || !status.nativeReady || connectState.queue[0]?.uri !== upcoming.uri) return;
+        warmingDetails = true;
+        try { await loadTrackDetails(upcoming.uri); }
+        finally { warmingDetails = false; }
+      }, 350);
+    }
+  }
+}
+
+async function loadTrackDetails(uri: string): Promise<void> {
+  if (metadataPending.has(uri) || connectMetadata.has(uri)) return;
+  const epoch = connectEpoch;
+  metadataPending.add(uri);
+  try {
+    const [detail] = await invoke<NativeTrack[]>("get_track_details", { uris: [uri] });
+    if (epoch !== connectEpoch || !detail || detail.uri !== uri) return;
+    if (detail.name !== "Titre indisponible" || playback.track?.uri === uri) rememberTrack(detail);
+    if (playback.track?.uri === uri) {
+      playback.track = detail;
+      queue.updateTrack(uri, nativeCard(detail));
+      renderPlayback();
+      queueView.render();
+    }
+  } catch (err) {
+    if (epoch === connectEpoch && playback.track?.uri === uri) showError(err);
+  } finally {
+    if (epoch === connectEpoch) metadataPending.delete(uri);
   }
 }
 function updateControls(): void {

@@ -20,6 +20,13 @@ does not contain account data. The fallback handler also keeps the native host's
 session identity synchronized when those newer fields prevent protobuf parsing.
 Raw session payloads are no longer included in the fallback log message.
 
+During active local playback, the receiver starts the player's existing
+single-track preload after two seconds on the same play request. The player
+checks the URI again when loading. This brings the next track's network and
+decoder work forward and can use bandwidth for a track the listener skips over.
+Local slider changes update the mixer immediately and use the existing delayed
+notification to publish the final volume.
+
 The application and diagnostic probe use the same patched crate. When upgrading
 librespot, reapply or replace this small integration patch and verify registration,
 device discovery, transfers and remote commands with the probe and desktop app.

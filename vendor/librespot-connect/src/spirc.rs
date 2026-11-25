@@ -469,7 +469,27 @@ impl SpircTask {
             return;
         }
 
+        // Keep the deadline across select iterations, even when Dealer is busy.
+        let mut early_preload = None;
         while !self.session.is_invalid() && !self.shutdown {
+            let playing_request = self.play_request_id.filter(|_| {
+                self.connect_state.is_active()
+                    && matches!(
+                        self.play_status,
+                        SpircPlayStatus::Playing {
+                            preloading_of_next_track_triggered: false,
+                            ..
+                        }
+                    )
+            });
+            if playing_request != early_preload.map(|(request, _)| request) {
+                early_preload = playing_request.map(|request| {
+                    (
+                        request,
+                        tokio::time::Instant::now() + Duration::from_secs(2),
+                    )
+                });
+            }
             let commands = self.commands.as_mut();
             let player_events = self.player_events.as_mut();
 
@@ -478,6 +498,13 @@ impl SpircTask {
             let allow_context_resolving = !self.update_state && !self.update_volume;
 
             tokio::select! {
+                _ = async {
+                    if let Some((_, deadline)) = early_preload {
+                        tokio::time::sleep_until(deadline).await;
+                    }
+                }, if early_preload.is_some() => {
+                    self.handle_preload_next_track();
+                },
                 // startup of the dealer requires a connection_id, which is retrieved at the very beginning
                 connection_id_update = self.connection_id_update.next() => unwrap! {
                     connection_id_update,
